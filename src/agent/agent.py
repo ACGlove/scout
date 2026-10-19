@@ -1,7 +1,8 @@
+
 import logging
 logger = logging.getLogger(__name__)
 
-
+# from dataclasses import dataclass
 from ..config import get_env
 
 from ..deps import get_model
@@ -10,9 +11,9 @@ from ..memory.memory import Memory
 
 from ..tool.registry import Registry
 from ..tool.plugins_loader import Plugins_Loader
-
-
 from .tool_executor import Tool_Executor
+
+
 
 class Agent:
     def __init__(self,system=''):
@@ -22,10 +23,9 @@ class Agent:
         self.root = get_env('ROOT')
         self.model = get_model()
         self.memory = Memory()
-        try:
-            self.tools=self.plugins_loader.load_plugins()       #加载,拿到[BaseTool]
-        except Exception as e:
-            logger.error('插件加载错误:%s',e)
+        
+        self.tools=self.plugins_loader.load_plugins()       #加载,拿到[BaseTool]
+        
         try:
             self.register.register_tools(tools=self.tools)     #注册
         except Exception as e:
@@ -73,32 +73,21 @@ class Agent:
 
 
 
-
-
-
-
-    
-
-
-
-
-
-
 #报错码422，传入字段不合法
 
 
 
 
 
+#按照生命周期拆分Agent
+#插件加载和注册一次结束，相同生命周期
+#memory和工具retry次数持续到对话结束
 
 
 
-
-
-
-
-
-
+#有行为无状态的做成函数
+#有行为有共享状态的做成类
+#只有状态的可以用dataclass
 
 
 
