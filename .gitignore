@@ -1,0 +1,30 @@
+# ===== 密钥与环境 =====
+.env
+.env.*
+!.env.example
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# ===== 缓存与日志 =====
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# ===== 编辑器 =====
+.vscode/
+.idea/
+*.swp
+
+# ===== 运行产物 =====
+# 工具的工作区目录（ROOT 指向这里）
+workspace/
+# 本地工具状态
+.learning/
