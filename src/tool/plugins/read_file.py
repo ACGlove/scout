@@ -18,7 +18,18 @@ class Read_Tool_Schema(BaseModel):
 def read_file(path:str,offset,encoding:str='utf-8',root=''):   #传工作区路径
     '''读取指定路径的文件内容,用于审查，优化代码，当文件行数超过200行时会触发截断，需要重新调用工具读取剩余内容'''
     logger.info('正在调用read_file工具')
-    p = Path(root) / path  
+    base=Path(root).resolve()
+    p = (base / path).resolve()
+    if not p.is_relative_to(base):
+        logger.warning('路径越界：%s',path)
+        return json.dumps({
+            'ok':False,
+            'content':None,
+            'error':'路径越界，重新生成已知路径'
+        })
+
+
+
     if not p.exists():
         logger.warning('文件不存在,读取失败')
         return json.dumps({

@@ -9,7 +9,8 @@ def get_model():
     timeout=get_env_int('LLM_TIMEOUT'),
     max_retries=get_env_int('LLM_MAX_RETRIES')
         )
-    return client.chat.completions
+    name=get_env('MODEL')
+    return name,client.chat.completions
 
 
 

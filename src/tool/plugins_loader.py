@@ -9,7 +9,7 @@ import importlib
 from pathlib import Path
 
 
-class Plugins_Loader:
+class PluginsLoader:
     def __init__(self):
         self.tools=[]
 

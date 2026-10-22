@@ -10,7 +10,7 @@ LEVELS = {
     'src.tool.plugins.search':        logging.DEBUG,        
     'src.agent.agent':     logging.DEBUG,
     'src.agent.tool_executor':      logging.INFO,         
-    'src.tool.plugins.write_file':    logging.INFO,     
+    'src.tool.plugins.edit_file':    logging.INFO,     
     'src.tool.plugins.read_file':     logging.INFO,
     'src.tool.plugins.get_filepath':    logging.INFO
 }
@@ -18,20 +18,50 @@ for name, lv in LEVELS.items():
     logging.getLogger(name).setLevel(lv)
 
 
-
+from .tool.plugins_loader import PluginsLoader
 from .agent.agent import Agent
+from .agent.plugins_manager import ToolManager
+from .agent.tool_executor import ToolExecutor
+from .memory.memory import Memory
+from .agent.config_context import ConfigContext
 
 
-def llm_call():
-    ag = Agent(system='你是一个代码助手,需要完成我给你的代码任务')
-    result = ag(query='帮我查看read_file文件里工具函数的逻辑对不对')
-    print(result)
 
+from .config import get_env
+from .deps import get_model
+
+
+
+
+
+
+
+
+
+def build_agent():
+    config_context=ConfigContext()
+    memory=Memory()
+    plugins_loader=PluginsLoader()
+
+    tool_manager=ToolManager(plugins_loader=plugins_loader)
+    executor=ToolExecutor(tools=tool_manager.get_tools(),
+                          root=get_env('ROOT'),
+                          config=config_context
+                          )
+
+    agent=Agent(
+        system=input('设定角色：'),
+        model=get_model(),
+        memory=memory,
+        executor=executor
+    )
+    return agent
 
 
 if __name__=='__main__':
-    llm_call()
-
+    agent=build_agent()
+    agent('告诉我哔站最近热门的番')
+    
 
     
    

@@ -18,7 +18,7 @@ class Search_Schema(BaseModel):
 @tool(args_schema=Search_Schema,max_retry=2)
 def search(query:str):
     '''用于联网搜索的工具，当问题涉及时间或者编程时调用'''
-    logger.info('正在调用search工具')
+    logger.info('正在调用search工具,搜索问题：%s',query)
     try:
         response = tavily.search(
                 query,
