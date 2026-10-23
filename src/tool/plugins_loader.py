@@ -38,7 +38,8 @@ class PluginsLoader:
                      self.tools.append(obj)
         if not self.tools:
             logger.error('无插件加载')
-        logger.warning('加载完成:工具目录：%s',[tool.name for tool in self.tools])
+            raise RuntimeError('没有工具加载成功,检查依赖和plugins/目录')     #工具加载失败直接抛出错误，静默处理难排查
+        logger.info('加载完成:工具目录：%s',[tool.name for tool in self.tools])
         return self.tools
 
 

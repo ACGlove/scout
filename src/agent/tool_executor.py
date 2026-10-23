@@ -7,9 +7,9 @@ from ..tool.contract import BaseTool
 from .protocol import MemoryProtocol
 
 class ToolExecutor:
-    def __init__(self,root,tools:list[BaseTool],config):
+    def __init__(self,tools:list[BaseTool],config):
         self.config=config
-        self.root = root
+        
         self.tools=tools
         self.func_retry={
             tool.name:tool.max_retry for tool in self.tools  #记录工具名映射最大重试次数
@@ -49,7 +49,7 @@ class ToolExecutor:
             memory.add_tool_msg(tool_id=tool_call.id,tool_result=f'arguments的json解析失败:{e},请更换参数传入或者换个策略')
             return False
 
-    def get_config(self,func,tool_call,tool_args):
+    def get_config(self,func,tool_call,tool_args) -> dict:
         sig = inspect.signature(func)
         config_items = [(field.name,getattr(self.config, field.name)) for field in fields(self.config)]  #[()]  里面是元组
               #可接收ConfigContext对象
@@ -82,9 +82,9 @@ class ToolExecutor:
                 if not self.is_tool_accept_call(memory,tool_call):
                     continue
                 tool_args=self.get_tool_args(memory,tool_call)
-                if tool_args is False:
+                if not tool_args:
                     continue            
-                tool_args=self.get_config(func,tool_call,tool_args)
+                tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
                          
                 try:
                     tool_result = func(**tool_args)

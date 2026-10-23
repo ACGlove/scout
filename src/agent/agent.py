@@ -40,7 +40,6 @@ class Agent:
             if is_tool_call:
                 continue
             else:
-                print(aimsg.content)
                 feedback=input('是否对结果满意,满意直接提出建议，否则输入y结束对话')
                 if feedback!='y':
                     self.memory.add_user_msg(feedback)
@@ -56,9 +55,6 @@ class Agent:
 
 
 
-#按照生命周期拆分Agent
-#插件加载和注册一次结束，相同生命周期
-#memory和工具retry次数持续到对话结束
 
 
 

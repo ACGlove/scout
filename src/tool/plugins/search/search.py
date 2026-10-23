@@ -2,12 +2,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel,Field
-from .config import TAVILY_API_KEY
+
 import json
 from tavily import TavilyClient
 from ...basetool_get import tool
 
-tavily = TavilyClient(api_key=TAVILY_API_KEY)
 
 
 class Search_Schema(BaseModel):
@@ -16,8 +15,9 @@ class Search_Schema(BaseModel):
 
 
 @tool(args_schema=Search_Schema,max_retry=2)
-def search(query:str):
+def search(query:str,tavily_api_key):
     '''用于联网搜索的工具，当问题涉及时间或者编程时调用'''
+    tavily=TavilyClient(api_key=tavily_api_key)
     logger.info('正在调用search工具,搜索问题：%s',query)
     try:
         response = tavily.search(

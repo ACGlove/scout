@@ -37,7 +37,7 @@ copy src\.env.example src\.env     # Windows
 # cp src/.env.example src/.env     # macOS / Linux
 ```
 
-编辑 `src/.env` 填入 `API_KEY`、`BASE_URL`、`MODEL`、`ROOT`。
+编辑 `src/.env` 填入 `API_KEY`、`BASE_URL`、`MODEL`、`ROOT` 和 `TAVILY_API_KEY`。`ConfigContext` 会在启动时读取配置，`ToolExecutor` 持有这个配置对象，并只把名称与工具函数参数匹配的字段注入工具。
 
 运行：
 
@@ -45,7 +45,7 @@ copy src\.env.example src\.env     # Windows
 python -m src
 ```
 
-任务在 `src/__main__.py` 的 `llm_call()` 里，改 `query` 参数即可。
+默认任务在 `src/__main__.py` 的 `agent(...)` 调用中，修改传入的查询文本即可。启动时还需要输入 system prompt。
 
 ## 项目结构
 
@@ -56,18 +56,20 @@ src/
 ├── deps.py               # OpenAI 客户端（chat.completions）
 ├── agent/
 │   ├── agent.py          # 主循环：模型 ↔ 工具，直到模型不再调用工具
-│   └── tool_executor.py  # 工具执行、root 注入、失败重试
+│   ├── config_context.py # 启动配置 dataclass
+│   ├── plugins_manager.py# 工具管理
+│   ├── protocol.py       # Memory / Executor / Loader 协议
+│   └── tool_executor.py  # 工具查找、参数注入、执行与失败重试
 ├── memory/
 │   └── memory.py         # messages 历史（system / user / ai / tool）
 └── tool/
     ├── contract.py       # BaseTool 数据契约
     ├── basetool_get.py   # @tool 装饰器 + pydantic → JSON Schema
-    ├── registry.py       # 注册表：schema / name→func / 重试配额
     ├── plugins_loader.py # 插件自动发现
     └── plugins/
         ├── get_filepath.py
+        ├── edit_file.py
         ├── read_file.py
-        ├── write_file.py
         ├── run_command.py
         └── search/       # 联网搜索（Tavily）
 ```
@@ -94,7 +96,8 @@ def grep(pattern: str, root: str = ''):
 - **函数名就是工具名**，模型看到的就是它
 - **docstring 就是 description —— 它是 prompt，不是注释。** 模型靠它决定什么时候调用你的工具
 - `Field(description=...)` 同样会发给模型，写清楚约束（单位、范围、格式）
-- 参数列表中带 `root` 时，执行器会自动注入工作区路径（工具不需要知道环境变量）
+- 工具函数参数名如果与 `ConfigContext` 字段名相同，执行器会自动注入对应配置值；例如函数声明 `root` 时会得到工作区路径
+- 配置注入值由执行器持有，模型传入的同名参数会被可信配置覆盖
 - 放进 `src/tool/plugins/` 即生效；目录形式的插件需要在 `__init__.py` 里导入工具对象
 - 返回 `{ok, content, error}`；失败时把「模型该怎么办」写进 `error`
 
@@ -102,20 +105,22 @@ def grep(pattern: str, root: str = ''):
 
 **大文件分页。** `read_file` 单次最多返回 200 行，超量时附带 `next_offset`，模型据此续读。这本质上是**控制单次 tool 消息占用的上下文长度**——把整个文件塞进上下文会挤掉对话历史，也会让长文件必然超窗。
 
-**重试。** 配额由 `@tool(max_retry=N)` 声明，执行器在工具抛异常时扣减，归零后向模型回传终止信号（而不是抛错），避免模型在同一个坑里反复重试。失败次数会在日志中逐步打印。
+**重试。** 配额由 `@tool(max_retry=N)` 声明，执行器在参数 JSON 解析失败、参数类型错误或工具抛异常时增加失败计数，达到上限后向模型回传终止信号，并从后续 Schema 中移除该工具。成功调用会把该工具的失败计数清零。
 
 **schema 转换。** pydantic 的 `model_json_schema()` 会产出 `title`（与字段名重复，纯浪费 token）和 `$defs`/`$ref`（部分厂商不支持）。`_strip_titles` 与 `_inline_refs` 在发送前处理掉这两类兼容问题。
 
 ## 已知限制
 
-当前是学习阶段的版本，以下问题已知未修：
+当前是学习阶段的版本，以下问题仍待处理：
 
 - [ ] 主循环 `while True` 没有步数上限，模型可能陷入死循环
 - [ ] `messages` 只增不减，长对话会持续膨胀直到超出上下文窗口
-- [ ] 失败计数是全局的，且不随新任务重置
-- [ ] 没有单元测试
-- [ ] CLI 交互（`print` / `input`）耦合在 Agent 循环内部，无法批量化运行
+- [ ] 工具失败计数保存在 `ToolExecutor` 实例中，尚未按每次用户任务重置
+- [ ] CLI 交互（`print` / `input`）仍耦合在 Agent 循环内部，无法批量化运行
 - [ ] 暂无流式输出
+- [ ] 联网搜索和命令执行仍需要补充更多集成测试
+
+项目已经包含 `tests/` 下的 pytest 测试，但测试环境需要单独安装 `pytest`。
 
 ## 安全提示
 

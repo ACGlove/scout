@@ -26,16 +26,7 @@ from .memory.memory import Memory
 from .agent.config_context import ConfigContext
 
 
-
-from .config import get_env
 from .deps import get_model
-
-
-
-
-
-
-
 
 
 def build_agent():
@@ -45,7 +36,6 @@ def build_agent():
 
     tool_manager=ToolManager(plugins_loader=plugins_loader)
     executor=ToolExecutor(tools=tool_manager.get_tools(),
-                          root=get_env('ROOT'),
                           config=config_context
                           )
 
@@ -60,7 +50,8 @@ def build_agent():
 
 if __name__=='__main__':
     agent=build_agent()
-    agent('告诉我哔站最近热门的番')
+    result=agent('告诉我哔站最近热门的番')
+    print(result)
     
 
     

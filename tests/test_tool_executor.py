@@ -46,16 +46,15 @@ def make_tool(name, func, max_retry=2):
 
 def make_executor(*tools):
     """造被测对象。root='.' 表示工作区是当前目录（测试里不真碰文件）。"""
-    return ToolExecutor(root='.', tools=list(tools))
+    return ToolExecutor(tools=list(tools), config=ConfigContext())
 
 def test_calls_tool_and_writes_result():
     mem = FakeMemory()
     ex = make_executor(make_tool('echo', lambda **kw: f'echo:{kw}'))
-
+    f_msg = fake_aimsg(('c1', 'echo','error_tool_arg'))
     result_true = ex.execute(
-        aimsg=fake_aimsg(('c1', 'echo','error_tool_arg')),         #传错误工具调用参数,json.load解析失败
-        memory=mem,
-        config=ConfigContext().get_config()
+        aimsg=f_msg,         #传错误工具调用参数,json.load解析失败
+        memory=mem
     )
     assert len(mem.messages) == 1
 
@@ -63,6 +62,9 @@ def test_calls_tool_and_writes_result():
 
     assert 'arguments的json解析失败' in mem.messages[-1]['content']
 
+
+    result_config=ex.get_config(func=lambda root:f'路径注入:{root}',tool_call=f_msg.tool_calls[0],tool_args={})
+    assert result_config['root'] == r'E:\agentpra\pra\pr\scout'
     # result_tool_error = ex.execute(
     #     aimsg=fake_aimsg(('c1', 'echo',{'x':'er'})),         
     #     memory=mem

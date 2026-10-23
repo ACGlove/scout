@@ -14,8 +14,10 @@ class MemoryProtocol(Protocol):
 
 
 class ToolExecutorProtocol(Protocol):
+    tools:list[BaseTool]
+    
 
-    def execute(self,aimsg,memory:MemoryProtocol) -> None:...
+    def execute(self,aimsg,memory:MemoryProtocol) -> bool:...
 
     def get_schema(self) -> list[dict]:...
 
