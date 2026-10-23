@@ -106,7 +106,8 @@ def test_agent_loop_work(monkeypatch):
 def test_feedback_not_y_keeps_looping(monkeypatch):
     """用户不满意（非 y）时：把反馈当成新的 user 消息追加，然后继续问模型。"""
     answers = ['说得再具体点', 'y']
-    monkeypatch.setattr('builtins.input', lambda prompt='': answers.pop(0))
+    monkeypatch.setattr('builtins.input', lambda prompt='': answers.pop(0))    
+    #劫持当场生效（名字被换掉），但替身的行为（answers.pop(0)）要等后面的代码喊到 input() 才执行。
     memory = Memory()
     executor = FakeExecutor()
     agent = Agent(
@@ -121,3 +122,5 @@ def test_feedback_not_y_keeps_looping(monkeypatch):
     assert executor.calls == 2        #两圈：第一圈被 feedback 打回
     assert len(memory.messages) == 5  #[system,user,assistant,user(反馈),assistant]
     assert memory.messages[3]['content'] == '说得再具体点'
+
+

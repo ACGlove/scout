@@ -15,9 +15,9 @@ class Search_Schema(BaseModel):
 
 
 @tool(args_schema=Search_Schema,max_retry=2)
-def search(query:str,tavily_api_key):
+def search(query:str,tavily_client):
     '''用于联网搜索的工具，当问题涉及时间或者编程时调用'''
-    tavily=TavilyClient(api_key=tavily_api_key)
+    tavily=tavily_client    #外部注入客户端,方便测试
     logger.info('正在调用search工具,搜索问题：%s',query)
     try:
         response = tavily.search(

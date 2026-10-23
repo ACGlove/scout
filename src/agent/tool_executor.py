@@ -4,7 +4,7 @@ import json
 import inspect
 from dataclasses import fields
 from ..tool.contract import BaseTool
-from .protocol import MemoryProtocol
+
 
 class ToolExecutor:
     def __init__(self,tools:list[BaseTool],config):
@@ -51,7 +51,7 @@ class ToolExecutor:
                 tool_args[name] = value
                 logger.info('工具%s注入参数%s',tool_call.function.name,name)
         return tool_args
-
+    
     
 
 #dict.values()返回视图[1,2],无法使用列表方法，字典的取值改变，视图跟着变

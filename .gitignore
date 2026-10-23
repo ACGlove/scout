@@ -26,5 +26,7 @@ dist/
 # ===== 运行产物 =====
 # 工具的工作区目录（ROOT 指向这里）
 workspace/
+# 临时目录
+.tmp/
 # 本地工具状态
 .learning/
