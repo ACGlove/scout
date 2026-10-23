@@ -9,11 +9,9 @@ from .protocol import MemoryProtocol,ToolExecutorProtocol
 
 class Agent:
     def __init__(self,model,memory:MemoryProtocol,executor:ToolExecutorProtocol,system=''):
-        self.memory=memory
-        self.executor=executor
-
-        self.model_name,self.model=model
-        
+        self.memory = memory
+        self.executor = executor
+        self.model_name,self.model = model
         self.system = system
         if system:
             self.memory.add_system_msg(system)
@@ -24,24 +22,24 @@ class Agent:
         while True:
             logger.info('正在发送请求')
             res = self.model.create(
-                model=self.model_name,
-                messages=self.memory.messages,
-                tools=self.executor.get_schema()
+                model = self.model_name,
+                messages = self.memory.messages,
+                tools = self.executor.get_schema()
             )
             logger.info('请求成功')
             aimsg = res.choices[0].message
             self.memory.add_ai_msg(aimsg)
-            is_tool_call = self.executor.execute(
-                aimsg=aimsg,
-                memory=self.memory
-            )
-            logger.info('工具调用完成,tool_call:%s',f'{is_tool_call}')
+            tool_messages = self.executor.execute(
+                aimsg = aimsg
+                )
+            self.memory.messages+=tool_messages
+            logger.info('工具调用完成')
             
-            if is_tool_call:
+            if tool_messages:
                 continue
             else:
-                feedback=input('是否对结果满意,满意直接提出建议，否则输入y结束对话')
-                if feedback!='y':
+                feedback = input('是否对结果满意,满意直接提出建议，否则输入y结束对话')
+                if feedback != 'y':
                     self.memory.add_user_msg(feedback)
                     continue
                         

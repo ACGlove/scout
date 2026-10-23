@@ -21,33 +21,26 @@ class ToolExecutor:
 
 
 
-    def is_tool_name_true(self,name_func:dict,memory:MemoryProtocol,tool_call) -> bool:
-        tool_name = tool_call.function.name
-        if tool_name not in name_func:
-            logger.error('工具名不存在，重新传回给大模型')
-            memory.add_tool_msg(tool_id=tool_call.id,tool_result=f'工具名不存在，重新传入正确的工具名')
-            return False
-        return True
-
-    def is_tool_accept_call(self,memory,tool_call) -> bool:
+    def is_tool_accept_call(self,tool_call,tool_messages:list[dict]) -> bool:
         tool_name = tool_call.function.name
         if self.error_retry[tool_name]==self.func_retry[tool_name]:
             logger.error('工具%s重试次数达到上限,不允许调用',tool_name)
-            memory.add_tool_msg(tool_id=tool_call.id,tool_result='重试次数达到上限，不要再调用此工具，将错误如实告诉用户')
+            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':'重试次数达到上限，不要再调用此工具，将错误如实告诉用户'})
             self.disabled_tools.append(tool_name)
             return False
         return True
 
 
-    def get_tool_args(self,memory,tool_call) -> bool:
+    def get_tool_args(self,tool_call,tool_messages:list[dict]) -> dict|None:
+        raw = tool_call.function.arguments or '{}'   #无参数的调用传空串或None,补成空字典
         try:
-            tool_arg = json.loads(tool_call.function.arguments)  #dict
+            tool_arg = json.loads(raw)  #dict
             return tool_arg
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError,TypeError) as e:
             self.error_retry[tool_call.function.name] += 1
             logger.error('json格式参数错误解析，重新传回给大模型')
-            memory.add_tool_msg(tool_id=tool_call.id,tool_result=f'arguments的json解析失败:{e},请更换参数传入或者换个策略')
-            return False
+            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'arguments的json解析失败:{e},请更换参数传入或者换个策略'})
+            return None          #用None当失败哨兵,因为{}是合法的无参数调用
 
     def get_config(self,func,tool_call,tool_args) -> dict:
         sig = inspect.signature(func)
@@ -62,51 +55,51 @@ class ToolExecutor:
     
 
 #dict.values()返回视图[1,2],无法使用列表方法，字典的取值改变，视图跟着变
-    def execute(self,aimsg,memory:MemoryProtocol) -> bool:
+    def execute(self,aimsg) -> bool:
+        tool_messages=[]
         name_func={
             tool.name:tool.func for tool in self.tools
         }
         
-        if aimsg.tool_calls:
-            for tool_call in aimsg.tool_calls:
-                tool_id = tool_call.id
-                tool_name = tool_call.function.name
-                func = name_func.get(tool_name)
-                if func is None:
-                    logger.error('工具名不存在，重新传回给大模型')
-                    memory.add_tool_msg(tool_id=tool_id,tool_result='工具名不存在，请重新生成正确的工具名')
-                    continue
-                
-                if not self.is_tool_name_true(name_func,memory,tool_call):
-                    continue
-                if not self.is_tool_accept_call(memory,tool_call):
-                    continue
-                tool_args=self.get_tool_args(memory,tool_call)
-                if not tool_args:
-                    continue            
-                tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
-                         
-                try:
-                    tool_result = func(**tool_args)
-                except TypeError as e:
-                    logger.error('参数错误，重新传回给大模型')
-                    memory.add_tool_msg(tool_id=tool_id,tool_result=f'参数错误:{e},请更换参数传入或者换个策略')
-                    self.error_retry[tool_name] += 1
-                    continue
-                except Exception as e:
-                    logger.error('工具调用错误,回传重试信息')
-                    self.error_retry[tool_name] += 1
-                    memory.add_tool_msg(tool_id=tool_id,tool_result=f'工具调用失败:{e},请重新调用工具尝试')
-                    continue
-                self.error_retry[tool_name] = 0
-                logger.info('正在填入工具消息')
-                
-                memory.add_tool_msg(tool_id=tool_id,tool_result=tool_result)
+        if not aimsg.tool_calls:
+            return []
 
-                logger.info('填入完成')
-            return True
-        else:
-            return False
+        for tool_call in aimsg.tool_calls:
+            tool_id = tool_call.id
+            tool_name = tool_call.function.name
+            func = name_func.get(tool_name)
+            if func is None:
+                logger.error('工具名不存在，重新传回给大模型')
+                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':'工具名不存在，请重新生成正确的工具名'})
+                continue
+                
+            if not self.is_tool_accept_call(tool_call,tool_messages):
+                continue
+            tool_args=self.get_tool_args(tool_call,tool_messages)
+            if tool_args is None:
+                continue            
+            tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
+                      
+            try:
+                tool_result = func(**tool_args)
+            except TypeError as e:
+                logger.error('参数错误，重新传回给大模型')
+                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':f'参数错误:{e},请更换参数传入或者换个策略'})
+                self.error_retry[tool_name] += 1
+                continue
+            except Exception as e:
+                logger.error('工具调用错误,回传重试信息')
+                self.error_retry[tool_name] += 1
+                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':f'工具调用失败:{e},请重新调用工具尝试'})
+                continue
+            self.error_retry[tool_name] = 0
+            logger.info('正在填入工具消息')
+            
+            tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':tool_result})
+
+            logger.info('填入完成')
+
+        return tool_messages
 
 
     def get_schema(self) -> list[dict]:
