@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from pydantic import BaseModel,Field
 
 import json
-from tavily import TavilyClient
+from tavily.exceptions import TimeoutError
 from ...basetool_get import tool
 
 
@@ -32,9 +32,9 @@ def search(query:str,tavily_client):
             'error':f'超时错误,错误信息为{f},请重新调用工具',
             'content':None
             })
-    res = '\n'
-    for i in response:
-        res += f'标题:{i['title']},链接:{i['url']},内容:{i['content']}'
+    
+    #join传可迭代对象,下面传的是生成器,join的拼接逻辑是'\n'插入迭代对象的中间
+    res = '\n'.join(f'标题:{i['title']},链接:{i['url']},内容:{i['content']}' for i in response)
     return json.dumps({
         'ok':True,
         'error':None,

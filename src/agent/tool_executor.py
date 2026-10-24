@@ -19,8 +19,6 @@ class ToolExecutor:
         }
         self.disabled_tools=[]
 
-
-
     def is_tool_accept_call(self,tool_call,tool_messages:list[dict]) -> bool:
         tool_name = tool_call.function.name
         if self.error_retry[tool_name]==self.func_retry[tool_name]:
@@ -51,6 +49,21 @@ class ToolExecutor:
                 tool_args[name] = value
                 logger.info('工具%s注入参数%s',tool_call.function.name,name)
         return tool_args
+
+    def get_func_return(self,func,tool_messages,tool_call,tool_args):
+        try:
+            tool_result = func(**tool_args)
+            return tool_result
+        except TypeError as e:
+            logger.error('参数错误，重新传回给大模型')
+            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'参数错误:{e},请更换参数传入或者换个策略'})
+            self.error_retry[tool_call.function.name] += 1
+            return False
+        except Exception as e:
+            logger.error('工具调用错误,回传重试信息')
+            self.error_retry[tool_call.function.name] += 1
+            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'工具调用失败:{e},请重新调用工具尝试'})
+            return False
     
     
 
@@ -80,17 +93,8 @@ class ToolExecutor:
                 continue            
             tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
                       
-            try:
-                tool_result = func(**tool_args)
-            except TypeError as e:
-                logger.error('参数错误，重新传回给大模型')
-                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':f'参数错误:{e},请更换参数传入或者换个策略'})
-                self.error_retry[tool_name] += 1
-                continue
-            except Exception as e:
-                logger.error('工具调用错误,回传重试信息')
-                self.error_retry[tool_name] += 1
-                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':f'工具调用失败:{e},请重新调用工具尝试'})
+            tool_result=self.get_func_return(func=func,tool_args=tool_args,tool_call=tool_call,tool_messages=tool_messages)
+            if not tool_result:
                 continue
             self.error_retry[tool_name] = 0
             logger.info('正在填入工具消息')

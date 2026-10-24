@@ -1,11 +1,6 @@
-
 import logging
 logger = logging.getLogger(__name__)
-
-# from dataclasses import dataclass
-
 from .protocol import MemoryProtocol,ToolExecutorProtocol
-
 
 class Agent:
     def __init__(self,model,memory:MemoryProtocol,executor:ToolExecutorProtocol,system=''):
@@ -42,7 +37,7 @@ class Agent:
                 if feedback != 'y':
                     self.memory.add_user_msg(feedback)
                     continue
-                        
+                print(aimsg.content)  
                 return aimsg.content
 
 
