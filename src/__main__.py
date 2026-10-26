@@ -50,8 +50,8 @@ def build_agent():
 
 if __name__=='__main__':
     agent=build_agent()
-    result=agent('告诉我哔站最近热门的番')
-    print(result)
+    result=agent('查看下memory目录下的memory文件,告诉我那段检查消息列表格式的逻辑对不对')
+    
     
 
     

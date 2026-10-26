@@ -24,20 +24,17 @@ class Agent:
             logger.info('请求成功')
             aimsg = res.choices[0].message
             self.memory.add_ai_msg(aimsg)
-            tool_messages = self.executor.execute(
-                aimsg = aimsg
-                )
+            tool_messages = self.executor.execute(aimsg = aimsg)
             self.memory.messages+=tool_messages
             logger.info('工具调用完成')
-            
-            if tool_messages:
+            if tool_messages:   #工具消息
                 continue
             else:
+                print(aimsg.content)
                 feedback = input('是否对结果满意,满意直接提出建议，否则输入y结束对话')
                 if feedback != 'y':
                     self.memory.add_user_msg(feedback)
                     continue
-                print(aimsg.content)  
                 return aimsg.content
 
 

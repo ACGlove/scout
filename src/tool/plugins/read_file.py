@@ -41,19 +41,19 @@ def read_file(path:str,offset,encoding:str='utf-8',root=''):   #传工作区路�
     collected = []
     with p.open('r',encoding=encoding,errors='replace') as f:
         
-        for lineno, line in enumerate(f, start=1):
+        for lineno, line in enumerate(f, start=1):     #从第一行开始读,lineno比len(collected)快一步,下一次读取从201开始
             if lineno < offset:
                 continue
-            collected.append(line)
-            if len(collected)>200:
+            if len(collected)>=200:   #在200时停下
                 logger.info('文件超过最大行数,分段读取')
                 return json.dumps({
                     'ok':True,
                     'error':'超出最大行数，重新调用工具读取剩下内容',
-                    'next_offset':lineno+1,
+                    'next_offset':lineno,
                     'content':''.join(collected),
                     'truncated':True
                 })
+            collected.append(line)
     return json.dumps({
                     'ok':True,
                     'error':None,
