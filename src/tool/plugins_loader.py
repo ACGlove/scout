@@ -16,24 +16,22 @@ class PluginsLoader:
     def load_plugins(self) -> list[BaseTool]:
         # p=Path(__file__).parent / 'plugin'   #获取目录路径 src\tool\plugin
         p=Path(__file__).parent / 'plugins'
-        file_plugin=list(p.glob('*.py'))       #获取单文件插件
-        dir_plugin=[d for d in p.iterdir() if d.is_dir() and (d/'__init__.py').exists()]  #获取带init的插件
-
-
-        for file_path in sorted(file_plugin+dir_plugin):
-            if file_path.name.startswith('_'):
+        #单文件插件和包内模块一视同仁:只要文件里有 BaseTool 实例就算插件
+        for file_path in sorted(p.rglob('*.py')):    #rglob返回以p为根的完整相对路径
+            if file_path.name.startswith('_'):     #含 __init__.py,包内模块会被直接扫到,不需要靠 __init__ 转导
                 continue
-            module_name=file_path.stem   #获取模块名
-            logger.warning('正在加载%s',module_name)
+            #relative_to去掉绝对前缀,rglob返回E://.../module,去掉后返回search/search
+            #with_suffix替换最后一个点和后面的部分,传入''就是去掉
+            #Path.parts将名字拆成元组,(search,search),最后用.连接
+            module_name='.'.join(file_path.relative_to(p).with_suffix('').parts)   #search/search.py -> search.search
+            logger.debug('正在加载%s',module_name)
             try:                                      #__package__返回当前文件所在包名
                 module=importlib.import_module(f'.plugins.{module_name}',package=__package__)   #当前文件位于的包为tool,刚好作为锚点
-                if not module:
-                    logger.error('插件%s加载失败',module_name)
             except Exception as e:
                 logger.error('加载失败:%s',e)
                 continue        #跳过这一个工具的加载
 
-            for name,obj in inspect.getmembers(module):  #抓取实例BaseTool,文件夹工具需要在__init__.py里显示定义工具并导入BaseTool
+            for name,obj in inspect.getmembers(module):  #抓取 BaseTool 实例
                 if isinstance(obj,BaseTool):
                      self.tools.append(obj)
         if not self.tools:

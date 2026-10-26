@@ -15,14 +15,19 @@ from types import SimpleNamespace
 
 from src.agent.tool_executor import ToolExecutor
 from src.tool.contract import BaseTool
+from src.hooks.hook_manager import HookManager
 
 
 @dataclass(frozen=True)
 class FakeConfig:
-    """形状和 ConfigContext 一样，但值是我写死的，不读环境变量。"""
+    """形状和 ConfigContext 一样，但值是我写死的，不读环境变量。
+
+    字段名必须和 ConfigContext 对齐：get_config 是按 field 名往函数签名里塞的，
+    这里多一个少一个，测出来的注入行为就是假的。
+    """
 
     root: str | None = 'E:/fake/root'
-    tavily_api_key: str | None = 'tvly-fake'
+    tavily_client: object = 'fake-client'
 
 
 def fake_aimsg(*calls):
@@ -51,7 +56,11 @@ def make_tool(name, func, max_retry=2):
 
 
 def make_executor(*tools):
-    return ToolExecutor(tools=list(tools), config=FakeConfig())
+    #用真的 HookManager，不用吃掉参数的假的：钩子漏传参数时这里会直接 TypeError，
+    #换成忽略参数的假对象，漏参的 bug 永远测不出来。
+    hooks = HookManager()
+    hooks.register()
+    return ToolExecutor(tools=list(tools), config=FakeConfig(), hooks=hooks)
 
 
 # 步骤：造状态 → 调方法 → 断言
@@ -192,8 +201,8 @@ def test_get_config_injects_only_matching_params():
     assert args == {'keep': 1}
 
     args = ex.get_config(
-        func=lambda root, tavily_api_key: None,
+        func=lambda root, tavily_client: None,
         tool_call=tool_call,
         tool_args={},
     )
-    assert args == {'root': 'E:/fake/root', 'tavily_api_key': 'tvly-fake'}
+    assert args == {'root': 'E:/fake/root', 'tavily_client': 'fake-client'}

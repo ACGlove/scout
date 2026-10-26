@@ -29,7 +29,9 @@ class PluginsLoaderProtocol(Protocol):
     
 
 
-
+# protocol.py 里追加
+class HookManagerProtocol(Protocol):
+    def trigger(self, name: str, *args: Any, **kwargs: Any) -> Any: ...
 
 
 

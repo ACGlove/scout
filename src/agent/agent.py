@@ -25,7 +25,7 @@ class Agent:
             aimsg = res.choices[0].message
             self.memory.add_ai_msg(aimsg)
             tool_messages = self.executor.execute(aimsg = aimsg)
-            self.memory.messages+=tool_messages
+            self.memory.messages += tool_messages
             logger.info('工具调用完成')
             if tool_messages:   #工具消息
                 continue

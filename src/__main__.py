@@ -24,7 +24,7 @@ from .agent.plugins_manager import ToolManager
 from .agent.tool_executor import ToolExecutor
 from .memory.memory import Memory
 from .agent.config_context import ConfigContext
-
+from .hooks.hook_manager import HookManager
 
 from .deps import get_model
 
@@ -33,24 +33,27 @@ def build_agent():
     config_context=ConfigContext()
     memory=Memory()
     plugins_loader=PluginsLoader()
+    hooks = HookManager()
+    hooks.register()
 
-    tool_manager=ToolManager(plugins_loader=plugins_loader)
-    executor=ToolExecutor(tools=tool_manager.get_tools(),
-                          config=config_context
+    tool_manager=ToolManager(plugins_loader = plugins_loader)
+    executor=ToolExecutor(tools = tool_manager.get_tools(),
+                          config = config_context,
+                          hooks = hooks
                           )
 
     agent=Agent(
-        system=input('设定角色：'),
-        model=get_model(),
-        memory=memory,
-        executor=executor
+        system = input('设定角色：'),
+        model = get_model(),
+        memory = memory,
+        executor = executor
     )
     return agent
 
 
 if __name__=='__main__':
-    agent=build_agent()
-    result=agent('查看下memory目录下的memory文件,告诉我那段检查消息列表格式的逻辑对不对')
+    agent = build_agent()
+    result = agent('告诉我项目的特点,新创个文件写进去')
     
     
 

@@ -4,12 +4,12 @@ import json
 import inspect
 from dataclasses import fields
 from ..tool.contract import BaseTool
-
+from .protocol import HookManagerProtocol
 
 class ToolExecutor:
-    def __init__(self,tools:list[BaseTool],config):
+    def __init__(self,tools:list[BaseTool],config,hooks:HookManagerProtocol):
         self.config=config
-        
+        self.hooks = hooks
         self.tools=tools
         self.func_retry={
             tool.name:tool.max_retry for tool in self.tools  #记录工具名映射最大重试次数
@@ -21,23 +21,22 @@ class ToolExecutor:
 
     def is_tool_accept_call(self,tool_call,tool_messages:list[dict]) -> bool:
         tool_name = tool_call.function.name
-        if self.error_retry[tool_name]==self.func_retry[tool_name]:
-            logger.error('工具%s重试次数达到上限,不允许调用',tool_name)
-            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':'重试次数达到上限，不要再调用此工具，将错误如实告诉用户'})
+        if self.error_retry[tool_name] >= self.func_retry[tool_name]:
+            resp = self.hooks.trigger('retry_limit',tool_call)
+            tool_messages.append(resp)
             self.disabled_tools.append(tool_name)
             return False
         return True
-
 
     def get_tool_args(self,tool_call,tool_messages:list[dict]) -> dict|None:
         raw = tool_call.function.arguments or '{}'   #无参数的调用传空串或None,补成空字典
         try:
             tool_arg = json.loads(raw)  #dict
             return tool_arg
-        except (json.JSONDecodeError,TypeError) as e:
+        except Exception as e:
             self.error_retry[tool_call.function.name] += 1
-            logger.error('json格式参数错误解析，重新传回给大模型')
-            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'arguments的json解析失败:{e},请更换参数传入或者换个策略'})
+            resp = self.hooks.trigger('retry_error',e,tool_call)
+            tool_messages.append(resp)
             return None          #用None当失败哨兵,因为{}是合法的无参数调用
 
     def get_config(self,func,tool_call,tool_args) -> dict:
@@ -54,15 +53,10 @@ class ToolExecutor:
         try:
             tool_result = func(**tool_args)
             return tool_result
-        except TypeError as e:
-            logger.error('参数错误，重新传回给大模型')
-            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'参数错误:{e},请更换参数传入或者换个策略'})
-            self.error_retry[tool_call.function.name] += 1
-            return False
         except Exception as e:
-            logger.error('工具调用错误,回传重试信息')
+            resp = self.hooks.trigger('retry_error',e,tool_call)
             self.error_retry[tool_call.function.name] += 1
-            tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':f'工具调用失败:{e},请重新调用工具尝试'})
+            tool_messages.append(resp)
             return False
     
     
@@ -82,8 +76,8 @@ class ToolExecutor:
             tool_name = tool_call.function.name
             func = name_func.get(tool_name)
             if func is None:
-                logger.error('工具名不存在，重新传回给大模型')
-                tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':'工具名不存在，请重新生成正确的工具名'})
+                resp = self.hooks.trigger('tool_name_error',tool_id)
+                tool_messages.append(resp)
                 continue
                 
             if not self.is_tool_accept_call(tool_call,tool_messages):
@@ -97,12 +91,7 @@ class ToolExecutor:
             if not tool_result:
                 continue
             self.error_retry[tool_name] = 0
-            logger.info('正在填入工具消息')
-            
             tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':tool_result})
-
-            logger.info('填入完成')
-
         return tool_messages
 
 
