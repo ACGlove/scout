@@ -4,6 +4,7 @@ from ..tool.contract import BaseTool
 
 class MemoryProtocol(Protocol):
     messages:list[dict[str,Any]]
+    max_token:int
 
     def add_system_msg(self,system='') -> None:...
 

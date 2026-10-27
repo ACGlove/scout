@@ -31,7 +31,8 @@ from .deps import get_model
 
 def build_agent():
     config_context=ConfigContext()
-    memory=Memory()
+    memory=Memory(max_token = 200,
+                  model = get_model())
     plugins_loader=PluginsLoader()
     hooks = HookManager()
     hooks.register()
@@ -53,7 +54,7 @@ def build_agent():
 
 if __name__=='__main__':
     agent = build_agent()
-    result = agent('告诉我项目的特点,新创个文件写进去')
+    result = agent('告诉我最近哔站比较火的番')
     
     
 
