@@ -13,6 +13,7 @@ class RunCommandSchema(BaseModel):
 @tool(args_schema = RunCommandSchema,max_retry = 3)
 def run_command(root:str,command:str):
     '''命令行工具,当你写完代码后需要调用此工具跑通代码验证是否会报错,或者自动化测试代码时调用'''
+
     logger.warning('正在执行run_command工具')
     allowed_command = [                          #命令白名单
         'python','python3','pip','pip3',
@@ -70,6 +71,7 @@ def run_command(root:str,command:str):
             'success': False,
             'error': f'命令执行超时{10}秒,强制终止'
         })
+ 
 
 
 #正常执行:返回结果

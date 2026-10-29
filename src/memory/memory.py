@@ -10,21 +10,27 @@ class Memory:
         
 
     def check_messages(self):  #用集合,每个tool_call都有对应的id，tool message会回传这个id
-        new_messges=[]
         tool_call_ids=[]
-        for message in self.messages:
-            if message['role'] == 'assistant':
-                if tool_call_ids:
-                    for id in tool_call_ids:
-                        new_messges.append({'role':'tool','tool_call_id':id,'content':'此工具调用中断,重新调用'})
+        
+        for message in reversed(self.messages):
+            if message['role'] == 'assistant':     
                 if message.get('tool_calls'):
                     for tool_call in message['tool_calls']:
                         tool_call_ids.append(tool_call['id'])
-            new_messges.append(message)
-            if message['role'] == 'tool':
-                if message['tool_call_id'] in tool_call_ids:
-                    tool_call_ids.remove( message['tool_call_id'])
-        self.messages = new_messges
+                    break
+                else:    #如果是不带tool_call的消息,说明是最终回复,不触发检查逻辑
+                    break
+        if tool_call_ids:
+            for message in reversed(self.messages):
+                if message['role'] == 'tool':
+                    if message['tool_call_id'] in tool_call_ids:
+                        tool_call_ids.remove(message['tool_call_id'])
+                if message['role'] == 'assistant':
+                    break
+        if tool_call_ids:
+            for id in tool_call_ids:
+                self.messages.append({'role':'tool','tool_call_id':id,'content':'此工具未能成功调用,请重新调用'})
+        
             
   
 
@@ -37,6 +43,7 @@ class Memory:
 
     def add_tool_msg(self,tool_messages):
         self.messages += tool_messages
+        self.check_messages()   #在添加完之后检查是否有未回传的tool消息
         
 
     def add_ai_msg(self,ai_reply):   #直接传aimessage.model_dump()
@@ -61,7 +68,6 @@ class Memory:
         return total_token
 
     def split_memory(self):
-        self.check_messages()
         token = self.count_token()
         split_message = [{'role':'user','content':'将这些对话消息做成600字以内的摘要,用户偏好如喜欢,感兴趣的信息尽量完整记录'}]
         #由于之前我将压缩记忆的方法内嵌在add_user_msg方法中,当token一直大于max_token时两个方法相互调用,会无限递归
