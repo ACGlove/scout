@@ -31,7 +31,7 @@ from .deps import get_model
 
 def build_agent():
     config_context=ConfigContext()
-    memory=Memory(max_token = 200,
+    memory=Memory(max_token = 12000,
                   model = get_model())
     plugins_loader=PluginsLoader()
     hooks = HookManager()
@@ -54,7 +54,7 @@ def build_agent():
 
 if __name__=='__main__':
     agent = build_agent()
-    result = agent('告诉我最近哔站比较火的番')
+    result = agent('帮我新创py文件写个冒泡排序')
     
     
 

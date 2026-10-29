@@ -32,6 +32,7 @@ class Memory:
         self.messages.append({'role':'system','content':system})
 
     def add_user_msg(self,user_input:str):
+        self.split_memory()
         self.messages.append({'role':'user','content':user_input})
 
     def add_tool_msg(self,tool_messages):
@@ -62,25 +63,23 @@ class Memory:
     def split_memory(self):
         self.check_messages()
         token = self.count_token()
-        self.add_user_msg('将这些对话消息做成600字以内的摘要,用户偏好如喜欢,感兴趣的信息尽量完整记录')
+        split_message = [{'role':'user','content':'将这些对话消息做成600字以内的摘要,用户偏好如喜欢,感兴趣的信息尽量完整记录'}]
         #由于之前我将压缩记忆的方法内嵌在add_user_msg方法中,当token一直大于max_token时两个方法相互调用,会无限递归
         if token > self.max_token:
             logger.warning('正在压缩记忆列表')  
             split_messages_index = 0
-            for index,message in enumerate(reversed(self.messages),start=1):
-                if message['role'] == 'system':
-                    split_messages_index = (len(self.messages) - index) + 1
-                    break
+            if self.messages[0]['role'] == 'system':
+                split_messages_index = 1
             logger.warning('正在发送记忆压缩请求')
-            logger.warning('不要压缩的消息：%s',self.messages[:split_messages_index+1])
             res = self.model.create(
                 model = self.model_name,
-                messages = self.messages[split_messages_index:]    #不压缩system消息
+                messages = self.messages[split_messages_index:] + split_message   #不压缩system消息
             ).choices[0].message.content
-            self.messages = self.messages[:split_messages_index+1]
-            self.add_system_msg(res)
-            logger.warning('压缩后的摘要：%s',res)
-            logger.warning('压缩成功')
+            self.messages = [self.messages[0]]
+            logger.warning('记忆列表状态：%s',self.messages)
+            self.messages[0]['content'] += f'\n\n对话历史摘要:{res}'
+            logger.warning('压缩后的摘要：%s',[message['role'] for message in self.messages])
+        
         else:
             logger.info('此轮无需压缩')
 

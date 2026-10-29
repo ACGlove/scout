@@ -8,9 +8,7 @@ class Agent:
         self.memory = memory
         self.executor = executor
         self.model_name,self.model = model
-        self.system = system
-        if system:
-            self.memory.add_system_msg(system)
+        self.memory.add_system_msg(system)
 
 
     def __call__(self,query):
@@ -35,7 +33,7 @@ class Agent:
                 logger.info('一轮对话结束')
                 feedback = input('对回答是否满意:\n')
                 if feedback != 'y':
-                    self.memory.split_memory()
+                    
                     logger.info('用户反馈问题:%s',feedback)
                     self.memory.add_user_msg(feedback)
                     continue
