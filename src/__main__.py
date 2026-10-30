@@ -54,7 +54,7 @@ def build_agent():
 
 if __name__=='__main__':
     agent = build_agent()
-    result = agent('帮我新创py文件写个冒泡排序')
+    result = agent('帮我新创py文件写个读写文件的函数,配备单元测试，帮我查查现在最火的agent开发框架是什么')
     
     
 

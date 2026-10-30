@@ -2,12 +2,14 @@ import logging
 logger = logging.getLogger(__name__)
 import json
 import inspect
+from concurrent.futures import ThreadPoolExecutor      #导入线程池,让多个工具并发调用,最后将结果统一打包返回给大模型
 from dataclasses import fields
 from ..tool.contract import BaseTool
 from .protocol import HookManagerProtocol
 
 class ToolExecutor:
     def __init__(self,tools:list[BaseTool],config,hooks:HookManagerProtocol):
+        self.pool = ThreadPoolExecutor(max_workers = 5)              #支持5个工具并发调用
         self.config=config
         self.hooks = hooks
         self.tools=tools
@@ -48,16 +50,7 @@ class ToolExecutor:
                 tool_args[name] = value
                 logger.info('工具%s注入参数%s',tool_call.function.name,name)
         return tool_args
-
-    def get_func_return(self,func,tool_messages,tool_call,tool_args):
-        try:
-            tool_result = func(**tool_args)
-            return tool_result
-        except Exception as e:
-            resp = self.hooks.trigger('retry_error',e,tool_call)
-            self.error_retry[tool_call.function.name] += 1
-            tool_messages.append(resp)
-            return False
+ 
     
     
 
@@ -70,11 +63,12 @@ class ToolExecutor:
         
         if not aimsg.tool_calls:
             return []
-
+        future_context = {}   #存线程对象和相关信息,便于定位
         for tool_call in aimsg.tool_calls:
             tool_id = tool_call.id
             tool_name = tool_call.function.name
-            func = name_func.get(tool_name)
+            func = name_func.get(tool_name,None)
+            
             if func is None:
                 resp = self.hooks.trigger('tool_name_error',tool_id)
                 tool_messages.append(resp)
@@ -87,14 +81,37 @@ class ToolExecutor:
                 continue            
             tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
                       
-            tool_result=self.get_func_return(func=func,tool_args=tool_args,tool_call=tool_call,tool_messages=tool_messages)
-            if not tool_result:
-                continue
-            self.error_retry[tool_name] = 0
-            tool_messages.append({'role':'tool','tool_call_id':tool_id,'content':tool_result})
+            
+            future = self.pool.submit(
+                func,
+                **tool_args
+            )                             #提交任务
+            future_context[future] = tool_call   #记录此线程相关信息
+
+        #收卷,拿到处理结果
+        logger.warning('线程池的任务:%s',[i.function.name for i in future_context.values()])
+        for future,tool_call in future_context.items():         #每次循环返回(键,值)这个元组
+            tool_name = future_context[future].function.name
+            tool_call = future_context[future]
+            #子线程报错在获取结果这一步报错
+            try:
+                result = future.result()    #任务的报错在这里触发
+                tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':result})
+                self.error_retry[tool_name] = 0        
+            except Exception as e:
+                resp = self.hooks.trigger('retry_error',e,tool_call)
+                self.error_retry[tool_call.function.name] += 1
+                tool_messages.append(resp)
+
         return tool_messages
 
 
     def get_schema(self) -> list[dict]:
         disabled=set(self.disabled_tools)
         return [tool.json_schema for tool in self.tools if tool.name not in disabled]
+
+
+
+
+#多工具并发调用:1.提交所有任务创建独立线程执行,将结果收集到列表
+#2.将结果遍历提交给大模型

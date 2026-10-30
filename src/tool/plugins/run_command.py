@@ -14,7 +14,7 @@ class RunCommandSchema(BaseModel):
 def run_command(root:str,command:str):
     '''命令行工具,当你写完代码后需要调用此工具跑通代码验证是否会报错,或者自动化测试代码时调用'''
 
-    logger.warning('正在执行run_command工具')
+    logger.warning('正在执行run_command工具,执行命令:%s',command)
     allowed_command = [                          #命令白名单
         'python','python3','pip','pip3',
         'pytest','git','dir','ls','cat',
@@ -29,8 +29,7 @@ def run_command(root:str,command:str):
         logger.warning('命令不在白名单内,执行终止')
         return json.dumps({
             'error': '命令权限不足,请换种策略执行任务'
-        })
-    logger.warning('正在执行命令:%s',command)
+        })  
     process = subprocess.Popen(
         command,
         cwd = root,
@@ -42,7 +41,7 @@ def run_command(root:str,command:str):
     )
     try:
         #运行到communicate会阻塞直到父进程死掉,把抽取的数据拼好返回
-        stdout,stderr = process.communicate(timeout = 10)      #抽取管道中的输出,否则输出塞满管道阻止子进程的输出,导致进程卡死在子进程的print,如果超时抛出错误
+        stdout,stderr = process.communicate(timeout = 25)      #抽取管道中的输出,否则输出塞满管道阻止子进程的输出,导致进程卡死在子进程的print,如果超时抛出错误
         if len(stdout) > 2000:
             stdout = stdout[:1000] + '\n...输出过长已截断...\n' + stdout[-1000:]   #防止token爆炸
         if len(stderr) > 2000:
