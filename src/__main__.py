@@ -18,7 +18,7 @@ LEVELS = {
 for name, lv in LEVELS.items():
     logging.getLogger(name).setLevel(lv)
 
-
+import asyncio
 from .tool.plugins_loader import PluginsLoader
 from .agent.agent import Agent
 from .agent.plugins_manager import ToolManager
@@ -55,7 +55,7 @@ def build_agent():
 
 if __name__=='__main__':
     agent = build_agent()
-    result = agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番')
+    result = asyncio.run(agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番'))
     
     
 
