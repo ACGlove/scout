@@ -3,6 +3,7 @@ logger = logging.getLogger(__name__)
 import json
 import inspect
 from concurrent.futures import ThreadPoolExecutor      #导入线程池,让多个工具并发调用,最后将结果统一打包返回给大模型
+import asyncio
 from dataclasses import fields
 from ..tool.contract import BaseTool
 from .protocol import HookManagerProtocol
@@ -55,15 +56,16 @@ class ToolExecutor:
     
 
 #dict.values()返回视图[1,2],无法使用列表方法，字典的取值改变，视图跟着变
-    def execute(self,aimsg) -> bool:
+    async def execute(self,aimsg) -> list[dict]:
         tool_messages=[]
         name_func={
             tool.name:tool.func for tool in self.tools
         }
         
+        
         if not aimsg.tool_calls:
             return []
-        future_context = {}   #存线程对象和相关信息,便于定位
+        tasks = []                #存线程对象和相关信息,便于定位
         for tool_call in aimsg.tool_calls:
             tool_id = tool_call.id
             tool_name = tool_call.function.name
@@ -80,29 +82,19 @@ class ToolExecutor:
             if tool_args is None:
                 continue            
             tool_args=self.get_config(func,tool_call,tool_args)       #注入工具敏感参数,例如root,apikey
-                      
-            
-            future = self.pool.submit(
-                func,
-                **tool_args
-            )                             #提交任务
-            future_context[future] = tool_call   #记录此线程相关信息
 
-        #收卷,拿到处理结果
-        logger.warning('线程池的任务:%s',[i.function.name for i in future_context.values()])
-        for future,tool_call in future_context.items():         #每次循环返回(键,值)这个元组
-            tool_name = future_context[future].function.name
-            tool_call = future_context[future]
-            #子线程报错在获取结果这一步报错
-            try:
-                result = future.result()    #任务的报错在这里触发
-                tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':result})
-                self.error_retry[tool_name] = 0        
-            except Exception as e:
-                resp = self.hooks.trigger('retry_error',e,tool_call)
+            tasks.append((asyncio.to_thread(func,**tool_args),tool_call,tool_name))  #把任务收集起来,to_thread会自己使用线程池,不用手动创建
+            
+        #解包协程对象列表传入,result里是协程任务的顺序
+        result = await asyncio.gather(*[task[0] for task in tasks],return_exceptions = True)   #并发收集执行结果,把结果打包成列表
+        logger.warning('线程池中的任务:%s',[task[2] for task in tasks])
+        for (_,tool_call,_),res in zip(tasks,result):
+            if isinstance(res,Exception):
+                resp = self.hooks.trigger('retry_error',res,tool_call)
                 self.error_retry[tool_call.function.name] += 1
                 tool_messages.append(resp)
-
+            else:
+                tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':res})
         return tool_messages
 
 
@@ -113,5 +105,10 @@ class ToolExecutor:
 
 
 
-#多工具并发调用:1.提交所有任务创建独立线程执行,将结果收集到列表
-#2.将结果遍历提交给大模型
+#如果用线程池的submit和result执行拿到任务会有以下问题:
+#通过for循环拿结果的时候是按顺序拿的,如果第一个卡了10秒就得等10秒才能拿到后面的结果
+#如果用await协程,就会优先拿到先返回的结果,最后总耗时还是10秒,但是短耗时操作已经先处理了
+#协程的gather是监听器,谁返回结果了就拿谁的结果
+
+
+

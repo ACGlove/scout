@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 from .protocol import MemoryProtocol,ToolExecutorProtocol
-
+import asyncio
 class Agent:
     def __init__(self,model,memory:MemoryProtocol,executor:ToolExecutorProtocol,system = '',max_step = 25):
         self.max_step = max_step
@@ -23,7 +23,7 @@ class Agent:
             logger.info('请求成功')
             aimsg = res.choices[0].message
             self.memory.add_ai_msg(aimsg)
-            tool_messages = self.executor.execute(aimsg = aimsg)
+            tool_messages = asyncio.run(self.executor.execute(aimsg = aimsg))     #run里面传协程对象,必须加(),
             self.memory.add_tool_msg(tool_messages)
             logger.info('工具调用完成')
             if tool_messages:   #工具消息

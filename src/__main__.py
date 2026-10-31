@@ -12,7 +12,8 @@ LEVELS = {
     'src.agent.tool_executor':      logging.INFO,         
     'src.tool.plugins.edit_file':    logging.INFO,     
     'src.tool.plugins.read_file':     logging.INFO,
-    'src.tool.plugins.get_filepath':    logging.INFO
+    'src.tool.plugins.get_filepath':    logging.INFO,
+    'src.tool.plugins.run_command':     logging.INFO
 }
 for name, lv in LEVELS.items():
     logging.getLogger(name).setLevel(lv)
@@ -54,7 +55,7 @@ def build_agent():
 
 if __name__=='__main__':
     agent = build_agent()
-    result = agent('帮我新创py文件写个读写文件的函数,配备单元测试，帮我查查现在最火的agent开发框架是什么')
+    result = agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番')
     
     
 
