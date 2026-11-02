@@ -49,6 +49,7 @@ class Memory:
     def add_ai_msg(self,ai_reply):   #直接传aimessage.model_dump()
         logger.info('正在填入ai消息')
         self.messages.append(ai_reply.model_dump())
+        self.split_memory()
         logger.info('填入成功')
 
     def count_token(self):
@@ -79,7 +80,7 @@ class Memory:
             logger.warning('正在发送记忆压缩请求')
             res = self.model.create(
                 model = self.model_name,
-                messages = self.messages[split_messages_index:] + split_message   #不压缩system消息
+                messages = self.messages[split_messages_index:] + split_message + [self.messages[-1]]   #不压缩system消息
             ).choices[0].message.content
             self.messages = [self.messages[0]]
             logger.warning('记忆列表状态：%s',self.messages)

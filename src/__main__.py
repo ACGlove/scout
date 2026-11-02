@@ -62,7 +62,7 @@ if __name__=='__main__':
         await mcp_loader.setup()   #启动mcp服务
         try:                       #必须放在 try/finally 里:mcp 子进程没关掉时 asyncio.run 收尾会一直等,异常信息也不会打印出来
             agent = await build_agent(mcp_loader)
-            result = await agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番')
+            result = await agent('查查哔站最近最火的番,整理一份md文档记录番的信息,顺便爬十张猫图片')
             print(result)
         finally:
             await mcp_loader.stack.aclose()  #关闭mcp服务

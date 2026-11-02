@@ -97,7 +97,7 @@ class ToolExecutor:
                 self.error_retry[tool_call.function.name] += 1
                 tool_messages.append(resp)
             else:
-                tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':"\n".join(b.text for b in res.content if b.type == "text") if isinstance(res,CallToolResult) else res})
+                tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':res})
         return tool_messages
 
 
