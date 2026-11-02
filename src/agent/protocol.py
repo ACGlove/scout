@@ -35,7 +35,10 @@ class HookManagerProtocol(Protocol):
     def trigger(self, name: str, *args: Any, **kwargs: Any) -> Any: ...
 
 
+class McpLoaderProtocol(Protocol):
+    async def setup(self) -> None:...
 
+    async def load_tools(self) -> list[BaseTool]:...
 
 
 

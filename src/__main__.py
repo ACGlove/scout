@@ -26,11 +26,13 @@ from .agent.tool_executor import ToolExecutor
 from .memory.memory import Memory
 from .agent.config_context import ConfigContext
 from .hooks.hook_manager import HookManager
+from .tool.mcp_tool.mcp_manager import McpLoader
 
 from .deps import get_model
 
 
-def build_agent():
+async def build_agent(mcp_loader):
+    system = await asyncio.to_thread(input, '设定角色：')   #先问角色,有输出提示,不会让人以为"没反应"
     config_context=ConfigContext()
     memory=Memory(max_token = 12000,
                   model = get_model())
@@ -38,14 +40,15 @@ def build_agent():
     hooks = HookManager()
     hooks.register()
 
-    tool_manager=ToolManager(plugins_loader = plugins_loader)
-    executor=ToolExecutor(tools = tool_manager.get_tools(),
+    tool_manager=ToolManager(plugins_loader = plugins_loader,
+                             mcp_loader = mcp_loader)
+    executor=ToolExecutor(tools = await tool_manager.get_tools(),   #get_tools 里要 await mcp 的 load_tools,所以它也是协程
                           config = config_context,
                           hooks = hooks
                           )
 
     agent=Agent(
-        system = input('设定角色：'),
+        system = system,
         model = get_model(),
         memory = memory,
         executor = executor
@@ -54,8 +57,19 @@ def build_agent():
 
 
 if __name__=='__main__':
-    agent = build_agent()
-    result = asyncio.run(agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番'))
+    async def main():
+        mcp_loader = McpLoader()
+        await mcp_loader.setup()   #启动mcp服务
+        try:                       #必须放在 try/finally 里:mcp 子进程没关掉时 asyncio.run 收尾会一直等,异常信息也不会打印出来
+            agent = await build_agent(mcp_loader)
+            result = await agent('帮我把所有排序算法写出来,每个排序需要配备单元测试,帮我查查哔站最近最火的番')
+            print(result)
+        finally:
+            await mcp_loader.stack.aclose()  #关闭mcp服务
+
+    asyncio.run(main())   #不管 main() 是正常结束还是抛异常，都先执行收尾——>退出前把所有后台任务停掉、等它们真正结束
+    #收尾卡在了子进程没结束,因为没有用try,finally让stack.aclose()正常关闭管道,子进程
+        
     
     
 

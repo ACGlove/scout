@@ -15,11 +15,12 @@ class Agent:
         self.memory.add_user_msg(user_input=query)
         for i in range(self.max_step):
             logger.info('正在发送请求')
-            res = await asyncio.to_thread(self.model.create(
+            #to_thread 只负责"在别的线程里调用"，函数在这里被提前执行就等于没用:必须传函数本身+参数
+            res = await asyncio.to_thread(self.model.create,
                 model = self.model_name,
                 messages = self.memory.messages,
                 tools = self.executor.get_schema()
-            ))
+            )
             logger.info('请求成功')
             aimsg = res.choices[0].message
             self.memory.add_ai_msg(aimsg)
@@ -31,7 +32,7 @@ class Agent:
             else:
                 print(aimsg.content)
                 logger.info('一轮对话结束')
-                feedback = await asyncio.to_thread(input('对回答是否满意:\n'))          #input也是同步阻塞事件
+                feedback = await asyncio.to_thread(input, '对回答是否满意:\n')          #input也是同步阻塞事件,input(...) 写在外面会先执行,同样要走 to_thread
                 if feedback != 'y':
                     
                     logger.info('用户反馈问题:%s',feedback)
