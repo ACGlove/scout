@@ -68,7 +68,7 @@ def run_command(root:str,command:str):
         #所有子进程的PID在父进程死后被过继到1号进程并被销毁,如果父进程没死,子进程占着PID,达到上限后无法创造新进程
         return json.dumps({
             'success': False,
-            'error': f'命令执行超时{10}秒,强制终止'
+            'error': f'命令执行超时25秒,强制终止'
         })
  
 
@@ -76,3 +76,5 @@ def run_command(root:str,command:str):
 #正常执行:返回结果
 #超时:杀死所有子进程成为僵尸进程,再杀死父进程,子进程过继给1号进程注销PID
 #最后爷爷进程通过代码communicate抽取管道剩余数据,关闭读端和写端,注销父进程的PID
+
+#所有进程共享管道,当所有写端结束时,读端才会自动关闭,只要有一处写端没关,读端就会一直读

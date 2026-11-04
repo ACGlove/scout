@@ -26,7 +26,7 @@ import src.tool.plugins.run_command as rc_mod          # 为了 patch 模块里�
 from src.tool.plugins.run_command import run_command
 
 # run_command 里用了 subprocess.CREATE_NO_WINDOW，这个常量只有 Windows 才有
-pytestmark = pytest.mark.skipif(os.name != 'nt', reason='run_command 只支持 Windows')
+pytestmark = pytest.mark.skipif(os.name != 'nt', reason='run_command 只支持 Windows') #os.name != 'nt' 表示非 Windows 就跳
 
 TRUNC_MARK = '\n...输出过长已截断...\n'   # 和实现里的标记完全一致（含首尾换行共 15 个字符），实现改了标记这个测试就该红
 FAKE_TIMEOUT = 2.0                    # 假超时：真等 10 秒太慢，压到 2 秒
@@ -59,7 +59,7 @@ _LONG_OUTPUT_SCRIPT = """
 import sys
 
 stream = sys.stdout if sys.argv[1] == 'stdout' else sys.stderr
-stream.write(('a' if sys.argv[1] == 'stdout' else 'b') * int(sys.argv[2]))
+stream.write(('a' if sys.argv[1] == 'stdout' else 'b') * int(sys.argv[2]))  
 """
 
 # 父进程起两个孙子进程并把 pid 记到文件里，然后自己睡死，模拟一条卡住的命令
@@ -84,7 +84,7 @@ time.sleep(120)
 
 def test_normal_command_returns_stdout(tmp_path):
     """正常执行：退出码 0，stdout 拿到子进程打印的内容，stderr 为空。"""
-    result = _run(tmp_path, 'python -c "print(123)"')
+    result = _run(tmp_path, 'python -c "print(123)"')   #子进程打印123
 
     assert result['success'] is True           # 退出码 0 才算成功
     assert result['stdout'].strip() == '123'   # 子进程的标准输出要被原样带回来
@@ -95,7 +95,7 @@ def test_command_runs_in_root_directory(tmp_path):
     """cwd 必须切到 root，否则相对路径的命令会跑在 agent 自己的目录里。"""
     (tmp_path / 'hi.txt').write_text('hello-root', encoding='utf-8')
 
-    result = _run(tmp_path, 'type hi.txt')
+    result = _run(tmp_path, 'type hi.txt')  #type是命令,把文本文件的内容打印
 
     assert result['success'] is True           # type 读到了文件，退出码为 0
     assert 'hello-root' in result['stdout']    # 读到的正是 root 下的文件，说明 cwd 生效了
@@ -103,7 +103,7 @@ def test_command_runs_in_root_directory(tmp_path):
 
 def test_nonzero_exit_code_reports_failure(tmp_path):
     """子进程非 0 退出：success 要为 False，但 stdout/stderr 照样得带回来。"""
-    result = _run(tmp_path, 'python -c "import sys; sys.exit(3)"')
+    result = _run(tmp_path, 'python -c "import sys; sys.exit(3)"')  #退出码为3,抛的错误被解释器接住转为退出码,所以stderr没有内容
 
     assert result['success'] is False          # 非 0 退出码一律算执行失败
     assert result['stdout'] == ''              # 这个脚本不打印任何东西
@@ -184,6 +184,7 @@ def test_timeout_kills_whole_process_tree(tmp_path, monkeypatch):
     _write_script(tmp_path, 'tree.py', _TREE_SCRIPT)
 
     created = []
+    #settar临时把某个属性换成别的,结束时再换回来
     monkeypatch.setattr(rc_mod.subprocess, 'Popen', _make_short_timeout_popen(created))
 
     result = _run(tmp_path, 'python tree.py pids.txt')

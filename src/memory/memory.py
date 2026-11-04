@@ -38,12 +38,13 @@ class Memory:
         self.messages.append({'role':'system','content':system})
 
     def add_user_msg(self,user_input:str):
-        self.split_memory()
         self.messages.append({'role':'user','content':user_input})
 
     def add_tool_msg(self,tool_messages):
         self.messages += tool_messages
         self.check_messages()   #在添加完之后检查是否有未回传的tool消息
+        self.count_tool_token(tool_messages=tool_messages)
+
         
 
     def add_ai_msg(self,ai_reply):   #直接传aimessage.model_dump()
@@ -68,6 +69,23 @@ class Memory:
         logger.info('此轮对话消耗token：%s',total_token)
         return total_token
 
+    def count_tool_token(self,tool_messages):
+        enc = tiktoken.get_encoding('o200k_base')   #分词器:将字符串切分成模型认识的最小单位:token
+        total_token = 0
+        token_pre = 4     #每条消息里都会隐式添加一些特殊符号
+        for msg in tool_messages:
+            total_token += token_pre  #每条消息的固定开销
+            total_token += len(enc.encode(msg.get('role','')))  #计算role的token
+            total_token += len(enc.encode(str(msg.get('content',''))))
+            if 'tool_calls' in msg:
+                total_token += len(enc.encode(json.dumps(msg['tool_calls'],ensure_ascii=False)))    
+            if 'tool_call_id' in msg:
+                total_token += len(enc.encode(str(msg['tool_call_id'])))
+        total_token += 2 #对话结尾的固定开销
+        logger.warning('此轮工具调用消耗token：%s',total_token)
+        return total_token
+
+
     def split_memory(self):
         token = self.count_token()
         split_message = [{'role':'user','content':'将这些对话消息做成600字以内的摘要,用户偏好如喜欢,感兴趣的信息尽量完整记录'}]
@@ -80,7 +98,7 @@ class Memory:
             logger.warning('正在发送记忆压缩请求')
             res = self.model.create(
                 model = self.model_name,
-                messages = self.messages[split_messages_index:] + split_message + [self.messages[-1]]   #不压缩system消息
+                messages = self.messages[split_messages_index:] + split_message + [self.messages[-1]]   #不压缩system消息,保留了最后一条消息,最好在添加消息后使用
             ).choices[0].message.content
             self.messages = [self.messages[0]]
             logger.warning('记忆列表状态：%s',self.messages)
@@ -108,12 +126,3 @@ class Memory:
 #模型底层的tokenizer计算时不会把字典消息原样计算,而是转化成一串带有特殊控制符的文本流(大概长这样<|im_start|>user<|im_end|>你好<|im_end|>)
 #直接用json字符串计算会因为很多括号,空格被算成额外的token
 #键名如role，content是也不会被算成token,大模型通过底层占位符区分内容,角色
-
-
-
-
-
-
-
-
-

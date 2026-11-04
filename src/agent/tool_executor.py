@@ -97,6 +97,7 @@ class ToolExecutor:
                 self.error_retry[tool_call.function.name] += 1
                 tool_messages.append(resp)
             else:
+                self.error_retry[tool_call.function.name] = 0   #成功一次就清零,偶发失败不该攒到上限
                 tool_messages.append({'role':'tool','tool_call_id':tool_call.id,'content':res})
         return tool_messages
 

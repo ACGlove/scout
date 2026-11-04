@@ -56,17 +56,18 @@ async def build_agent(mcp_loader):
     return agent
 
 
-if __name__=='__main__':
-    async def main():
-        mcp_loader = McpLoader()
-        await mcp_loader.setup()   #启动mcp服务
-        try:                       #必须放在 try/finally 里:mcp 子进程没关掉时 asyncio.run 收尾会一直等,异常信息也不会打印出来
-            agent = await build_agent(mcp_loader)
-            result = await agent('查查哔站最近最火的番,整理一份md文档记录番的信息,顺便爬十张猫图片')
-            print(result)
-        finally:
-            await mcp_loader.stack.aclose()  #关闭mcp服务
+async def main():          #定义在模块层,测试才能 import 进来;写在 if __name__ 里面就永远测不到
+    mcp_loader = McpLoader()
+    await mcp_loader.setup()   #启动mcp服务
+    try:                       #必须放在 try/finally 里:mcp 子进程没关掉时 asyncio.run 收尾会一直等,异常信息也不会打印出来
+        agent = await build_agent(mcp_loader)
+        result = await agent('查查哔站最近最火的番,整理一份md文档记录番的信息,顺便爬十张猫图片,自己创建md文件记录')
+        print(result)
+    finally:
+        await mcp_loader.stack.aclose()  #关闭mcp服务
 
+
+if __name__=='__main__':
     asyncio.run(main())   #不管 main() 是正常结束还是抛异常，都先执行收尾——>退出前把所有后台任务停掉、等它们真正结束
     #收尾卡在了子进程没结束,因为没有用try,finally让stack.aclose()正常关闭管道,子进程
         

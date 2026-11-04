@@ -2,9 +2,10 @@
 
 Memory 重构后构造函数变成了 Memory(max_token, model)，model 是 (名字, 真模型) 元组。
 FakeModel 同时扮两个角色：Agent 的对话模型、Memory 压缩时要做摘要的模型。
-压缩的触发点在 add_user_msg -> split_memory，所以测试里都用 add_user_msg 来触发。
+压缩的触发点搬到了 add_ai_msg -> split_memory，所以测试里都用 add_ai_msg 来触发。
 """
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -43,7 +44,7 @@ class FakeExecutor:
     def get_schema(self):
         return []
 
-    def execute(self, aimsg):
+    async def execute(self, aimsg):     # 真执行器改成协程了，假货也得 await 得起来
         self.calls += 1
         return self.rounds.pop(0) if self.rounds else []
 
@@ -86,7 +87,7 @@ def test_no_tool_call_returns_content(monkeypatch):     #测试名详细
         system = '你是助手'
     )
 
-    result=agent('hhhhhh')
+    result=asyncio.run(agent('hhhhhh'))   # __call__ 现在是协程
     assert len(memory.messages) == 3   #验证循环只跑了一轮    [system,user,assistant]
     assert memory.messages[1]['content'] == 'hhhhhh'   #测试用户消息传进去
     assert memory.messages[-1]['content'] == '你好'
@@ -109,7 +110,7 @@ def test_agent_loop_work(monkeypatch):
         system='你是助手',
     )
 
-    agent('用一下工具')
+    asyncio.run(agent('用一下工具'))
 
     assert executor.calls == 2                    #转了两圈：有工具 -> 再问 -> 没工具
     assert len(memory.messages) == 5              #[system,user,assistant,tool,assistant]
@@ -133,7 +134,7 @@ def test_feedback_not_y_keeps_looping(monkeypatch):
         system='你是助手',
     )
 
-    agent('hhhhhh')
+    asyncio.run(agent('hhhhhh'))
 
     assert executor.calls == 2        #两圈：第一圈被 feedback 打回
     assert len(memory.messages) == 5  #[system,user,assistant,user(反馈),assistant]
@@ -148,24 +149,24 @@ def test_split_memory_compresses_when_over_max_token():
     fake = FakeModel(content='这是摘要')
     memory = Memory(max_token=20, model=(MODEL_NAME, fake))
     memory.add_system_msg('你是助手')
-    # 直接往列表里塞一条很长的消息：add_user_msg 会先压缩再加消息，塞进去才能制造超限
+    # 直接往列表里塞一条很长的消息：塞进去才能制造超限
     memory.messages.append({'role': 'user', 'content': '很长' * 100})
 
     assert memory.count_token() > memory.max_token        # 前置条件：确实超了上限
 
-    memory.add_user_msg('第二轮')
+    memory.add_ai_msg(FakeMsg(content='回复', tool_calls=None))   # 压缩在 add_ai_msg 里触发
 
     assert len(fake.calls) == 1                            # 超限时只发了一次压缩请求
     sent = fake.calls[0]['messages']
-    assert sent[-1]['content'].startswith('将这些对话消息做成')  # 末尾那条就是压缩指令
+    assert sent[-2]['content'].startswith('将这些对话消息做成')  # 倒数第二条是压缩指令
+    assert sent[-1] == {'role': 'assistant', 'content': '回复', 'tool_calls': None}  # 最后一条是刚加的 ai 消息
     assert all(m['role'] != 'system' for m in sent)         # system 不参与压缩，不能发给摘要模型
-    assert len(sent) == 2                                  # 只发了那条长消息 + 压缩指令
+    assert len(sent) == 4                                  # 长消息 + ai 消息 + 压缩指令 + 最后一条
 
-    assert len(memory.messages) == 2                       # 压完只剩 system + 这一轮新的 user
+    assert len(memory.messages) == 1                       # 压完只剩 system
     assert memory.messages[0]['role'] == 'system'
     assert memory.messages[0]['content'].startswith('你是助手')   # 原 system 内容没被覆盖
     assert '这是摘要' in memory.messages[0]['content']            # 摘要拼到 system 后面
-    assert memory.messages[1] == {'role': 'user', 'content': '第二轮'}  # 新 user 消息照常追加
 
 
 def test_split_memory_keeps_history_under_max_token():
@@ -175,9 +176,10 @@ def test_split_memory_keeps_history_under_max_token():
     memory.add_system_msg('你是助手')
 
     memory.add_user_msg('你好')
+    memory.add_ai_msg(FakeMsg(content='你好呀', tool_calls=None))
 
     assert fake.calls == []                                 # 没超限就不该调模型做摘要
-    assert [m['role'] for m in memory.messages] == ['system', 'user']   # 历史一条都没少
+    assert [m['role'] for m in memory.messages] == ['system', 'user', 'assistant']   # 历史一条都没少
 
 
 # ------------------------------------------------------ check_messages 补 tool 消息

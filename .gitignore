@@ -1,4 +1,4 @@
-# ===== 密钥与环境 =====
+# ===== 密钥与环�?=====
 .env
 .env.*
 !.env.example
@@ -12,21 +12,21 @@ build/
 dist/
 *.egg-info/
 
-# ===== 缓存与日志 =====
+# ===== 缓存与日�?=====
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 *.log
 
-# ===== 编辑器 =====
+# ===== 编辑�?=====
 .vscode/
 .idea/
 *.swp
 
 # ===== 运行产物 =====
-# 工具的工作区目录（ROOT 指向这里）
-workspace/
+# 工具的工作区目录（ROOT 指向这里�?workspace/
 # 临时目录
 .tmp/
-# 本地工具状态
-.learning/
+# 本地工具状�?.learning/
+# test drills sandbox (local only)
+.drill/

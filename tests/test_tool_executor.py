@@ -10,6 +10,7 @@
   换台机器就红，而红的原因跟我测的逻辑无关——测试不该依赖运行环境。
 """
 
+import asyncio
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -63,6 +64,11 @@ def make_executor(*tools):
     return ToolExecutor(tools=list(tools), config=FakeConfig(), hooks=hooks)
 
 
+def run(func, **kwargs):
+    """execute 现在是协程，测试里用 asyncio.run 把它跑到结束。"""
+    return asyncio.run(func(**kwargs))
+
+
 # 步骤：造状态 → 调方法 → 断言
 
 
@@ -70,14 +76,14 @@ def test_no_tool_call_returns_empty_list():
     """没有工具调用时返回空列表，主循环据此判断该收尾。"""
     ex = make_executor(make_tool('echo', lambda: 'x'))
 
-    assert ex.execute(aimsg=fake_aimsg()) == []
+    assert run(ex.execute,aimsg=fake_aimsg()) == []
 
 
 def test_success_returns_one_tool_message():
     """正常调用：一条消息，role 固定 tool，tool_call_id 必须和调用对齐。"""
     ex = make_executor(make_tool('echo', lambda word: f'echo:{word}'))
 
-    messages = ex.execute(aimsg=fake_aimsg(('c1', 'echo', '{"word": "hi"}')))
+    messages = run(ex.execute,aimsg=fake_aimsg(('c1', 'echo', '{"word": "hi"}')))
 
     assert len(messages) == 1
     assert messages[0]['role'] == 'tool'
@@ -89,7 +95,7 @@ def test_bad_json_arguments_are_reported():
     """模型把 arguments 写成非 json 时，回一条错误消息而不是让程序崩。"""
     ex = make_executor(make_tool('echo', lambda **kw: 'x'))
 
-    messages = ex.execute(aimsg=fake_aimsg(('c1', 'echo', 'error_tool_arg')))
+    messages = run(ex.execute,aimsg=fake_aimsg(('c1', 'echo', 'error_tool_arg')))
 
     assert len(messages) == 1
     assert messages[0]['tool_call_id'] == 'c1'
@@ -101,7 +107,7 @@ def test_unknown_tool_name_is_reported():
     """模型编了个不存在的工具名：也要回一条，让它有机会自己改。"""
     ex = make_executor(make_tool('echo', lambda: 'x'))
 
-    messages = ex.execute(aimsg=fake_aimsg(('c1', 'nope', '{}')))
+    messages = run(ex.execute,aimsg=fake_aimsg(('c1', 'nope', '{}')))
 
     assert len(messages) == 1
     assert messages[0]['tool_call_id'] == 'c1'
@@ -115,7 +121,7 @@ def test_empty_arguments_means_call_without_args():
     """
     ex = make_executor(make_tool('noargs', lambda root: f'root={root}'))
 
-    messages = ex.execute(aimsg=fake_aimsg(('c1', 'noargs', '')))
+    messages = run(ex.execute,aimsg=fake_aimsg(('c1', 'noargs', '')))
 
     assert len(messages) == 1
     assert messages[0]['content'] == 'root=E:/fake/root'
@@ -125,7 +131,7 @@ def test_config_overrides_model_supplied_argument():
     """模型自己塞了 root=C:/windows，也会被 config 里的真值覆盖掉——信任边界在这。"""
     ex = make_executor(make_tool('read_file', lambda root, path: f'{root}|{path}'))
 
-    messages = ex.execute(
+    messages = run(ex.execute,
         aimsg=fake_aimsg(('c1', 'read_file', '{"root": "C:/windows", "path": "a.txt"}'))
     )
 
@@ -139,11 +145,11 @@ def test_retry_limit_disables_tool():
 
     ex = make_executor(make_tool('boom', boom, max_retry=1))
 
-    first = ex.execute(aimsg=fake_aimsg(('c1', 'boom', '{}')))
+    first = run(ex.execute,aimsg=fake_aimsg(('c1', 'boom', '{}')))
     assert '工具调用失败' in first[0]['content']
     assert ex.error_retry['boom'] == 1
 
-    second = ex.execute(aimsg=fake_aimsg(('c2', 'boom', '{}')))
+    second = run(ex.execute,aimsg=fake_aimsg(('c2', 'boom', '{}')))
     assert '重试次数达到上限' in second[0]['content']
     assert ex.disabled_tools == ['boom']
     assert ex.get_schema() == []
@@ -153,7 +159,7 @@ def test_type_error_is_reported_as_argument_error():
     """参数对不上（多了/少了）走 TypeError 分支，提示语和"执行炸了"要区分开。"""
     ex = make_executor(make_tool('strict', lambda only_this: 'x'))
 
-    messages = ex.execute(aimsg=fake_aimsg(('c1', 'strict', '{"other": 1}')))
+    messages = run(ex.execute,aimsg=fake_aimsg(('c1', 'strict', '{"other": 1}')))
 
     assert '参数错误' in messages[0]['content']
     assert ex.error_retry['strict'] == 1
@@ -163,13 +169,14 @@ def test_every_tool_call_gets_a_reply():
     """一条 assistant 消息里三个 tool_call，就必须回三条——少一条下一轮请求直接 400。"""
     ex = make_executor(make_tool('a', lambda: 'ra'), make_tool('b', lambda: 'rb'))
 
-    messages = ex.execute(aimsg=fake_aimsg(
+    messages = run(ex.execute,aimsg=fake_aimsg(
         ('c1', 'a', '{}'),
         ('c2', 'b', '{}'),
         ('c3', 'nope', '{}'),
     ))
 
-    assert [m['tool_call_id'] for m in messages] == ['c1', 'c2', 'c3']
+    # 并发执行后回执顺序不固定（未知工具当场就回了），只保证每条 tool_call 都有对应消息
+    assert sorted(m['tool_call_id'] for m in messages) == ['c1', 'c2', 'c3']
     assert [m['role'] for m in messages] == ['tool', 'tool', 'tool']
 
 
@@ -185,10 +192,10 @@ def test_success_resets_error_retry():
 
     ex = make_executor(make_tool('flaky', flaky, max_retry=2))
 
-    ex.execute(aimsg=fake_aimsg(('c1', 'flaky', '{}')))
+    run(ex.execute,aimsg=fake_aimsg(('c1', 'flaky', '{}')))
     assert ex.error_retry['flaky'] == 1
 
-    ex.execute(aimsg=fake_aimsg(('c2', 'flaky', '{}')))
+    run(ex.execute,aimsg=fake_aimsg(('c2', 'flaky', '{}')))
     assert ex.error_retry['flaky'] == 0
 
 

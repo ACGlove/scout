@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from mcp import ClientSession, StdioServerParameters, stdio_client
 import sys
 from pathlib import Path
@@ -13,13 +15,16 @@ class McpLoader:
         self.session = []
 
     
-
+#协议规定握手前,session发出的请求会被无视
     async def setup(self,cmd:list[list] = [CMD]):       #异步生成器,管理mcp server的生命周期,如果直接return,函数一结束session就断开
         for cmd in cmd:
             params = StdioServerParameters(command=cmd[0], args=cmd[1:])
-            read,write = await self.stack.enter_async_context(stdio_client(params))
-            session = await self.stack.enter_async_context(ClientSession(read,write))
-            await session.initialize()  #这里函数结束了,但是session没有关,生命周期挂在了stack上,调用await self.stack.aclose()所有with才会退出
+            read,write = await self.stack.enter_async_context(stdio_client(params))  #建立子进程拿到管道
+            session = await self.stack.enter_async_context(ClientSession(read,write)) #建立会话
+            init = await session.initialize()  #握手,确认版本,有无prompt,tool,resource等功能,决定client能发哪些请求,server 决定能不能反过来请求你：能不能让你调 LLM 做摘要、能不能弹窗问你
+            if init.capabilities.tools is None:      # 对方压根没开 tools
+                logger.error('此mcp服务端无工具能力')
+                continue
             self.session.append(session)       #多个会话压入一个stack
               
 
