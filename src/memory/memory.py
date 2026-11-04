@@ -2,11 +2,12 @@ import logging
 logger = logging.getLogger(__name__)
 import tiktoken
 import json
+from ..agent.protocol import LLMProvider
 class Memory:
-    def __init__(self,max_token,model):
+    def __init__(self,max_token,model:LLMProvider):
         self.messages = []
         self.max_token = max_token
-        self.model_name,self.model = model
+        self.model = model
         
 
     def check_messages(self):  #用集合,每个tool_call都有对应的id，tool message会回传这个id
@@ -47,10 +48,10 @@ class Memory:
 
         
 
-    def add_ai_msg(self,ai_reply):   #直接传aimessage.model_dump()
+    async def add_ai_msg(self,ai_reply):   #直接传aimessage
         logger.info('正在填入ai消息')
         self.messages.append(ai_reply.model_dump())
-        self.split_memory()
+        await self.split_memory()
         logger.info('填入成功')
 
     def count_token(self):
@@ -86,22 +87,20 @@ class Memory:
         return total_token
 
 
-    def split_memory(self):
+    async def split_memory(self):
         token = self.count_token()
-        split_message = [{'role':'user','content':'将这些对话消息做成600字以内的摘要,用户偏好如喜欢,感兴趣的信息尽量完整记录'}]
+        split_message = [{'role':'user','content':'将所有消息总结成摘要,如果有旧摘要就将旧摘要与新信息合并成新摘要,字数大约六百字左右,用户偏好如喜欢,感兴趣的信息尽量完整记录,如果没有相关信息请直接返回空摘要'}]
         #由于之前我将压缩记忆的方法内嵌在add_user_msg方法中,当token一直大于max_token时两个方法相互调用,会无限递归
         if token > self.max_token:
             logger.warning('正在压缩记忆列表')  
-            split_messages_index = 0
-            if self.messages[0]['role'] == 'system':
-                split_messages_index = 1
+            
             logger.warning('正在发送记忆压缩请求')
-            res = self.model.create(
-                model = self.model_name,
-                messages = self.messages[split_messages_index:] + split_message + [self.messages[-1]]   #不压缩system消息,保留了最后一条消息,最好在添加消息后使用
-            ).choices[0].message.content
-            self.messages = [self.messages[0]]
-            logger.warning('记忆列表状态：%s',self.messages)
+            final_messages = [self.messages[-1]]
+            res = (await self.model.chat(
+                messages = self.messages[:len(self.messages) - 1] + split_message   #不压缩system消息,保留了最后一条消息,最好在添加消息后使用
+            )).content
+            self.messages = [self.messages[0]] + final_messages
+            
             self.messages[0]['content'] += f'\n\n对话历史摘要:{res}'
             logger.warning('压缩后的摘要：%s',[message['role'] for message in self.messages])
         

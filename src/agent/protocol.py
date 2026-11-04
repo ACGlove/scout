@@ -42,8 +42,9 @@ class McpLoaderProtocol(Protocol):
 
 
 
-
-
+class LLMProvider(Protocol):
+    model_name:str
+    async def chat(self, messages:list[dict],tools:list[dict]) -> Any:...
 
 
 

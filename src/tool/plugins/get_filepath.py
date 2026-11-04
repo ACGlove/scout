@@ -22,13 +22,13 @@ def get_filepath(root):
             'ok':True,
             'error':'此目录下无文件',
             'content':None
-        })
+        }, ensure_ascii=False)
     paths = '\n'.join([str(i) for i in files])
     return json.dumps({
         'ok':True,
         'error':None,
         'content':paths
-    })
+    }, ensure_ascii=False)
 
     
 

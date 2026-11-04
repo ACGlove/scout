@@ -23,12 +23,12 @@ def edit_file(path:str,content,root):
         return json.dumps({
             'ok':False,
             'error':'path不在用户指定的工作区内，请重新调用工具生成你知道的路径'
-        })
+        },ensure_ascii=False)
     if file_path.is_dir():    #使最终落点在文件而不是目录
             return json.dumps({
                 'ok': False, 'content': None,
                 'error': f'path 指向的是目录：{path}，请给出文件路径',
-            })
+            },ensure_ascii=False)
 
     file_path.parent.mkdir(parents=True,exist_ok=True)    #p.parent是p的父目录,如src\untils\a.py，p.parent返回src\untils,验证目标文件的父目录是否存在，自动创建
     
@@ -37,7 +37,7 @@ def edit_file(path:str,content,root):
     return json.dumps({
         'ok':True,
         'error':None
-    })
+    }, ensure_ascii=False)
 
 
 

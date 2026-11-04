@@ -26,17 +26,14 @@ def read_file(path:str,offset,encoding:str='utf-8',root=''):   #传工作区路�
             'ok':False,
             'content':None,
             'error':'路径越界，重新生成已知路径'
-        })
-
-
-
+        },ensure_ascii=False)
     if not p.exists():
         logger.warning('文件不存在,读取失败')
         return json.dumps({
             'ok':False,
             'content':None,
             'error':f'文件不存在：{p}'
-        })
+        }, ensure_ascii=False)
     logger.info('正在读取文件%s',path)
     collected = []
     with p.open('r',encoding=encoding,errors='replace') as f:
@@ -52,14 +49,14 @@ def read_file(path:str,offset,encoding:str='utf-8',root=''):   #传工作区路�
                     'next_offset':lineno,
                     'content':''.join(collected),
                     'truncated':True
-                })
+                },ensure_ascii=False)
             collected.append(line)
     return json.dumps({
                     'ok':True,
                     'error':None,
                     'next_offset':None,
                     'content':''.join(collected)
-                })              #漏填return值，tool消息里的content为None,导致422错误,不同服务商错误码可能不同，ds是422，openai是400
+                },ensure_ascii=False)              #漏填return值，tool消息里的content为None,导致422错误,不同服务商错误码可能不同，ds是422，openai是400
 
     
 

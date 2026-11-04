@@ -29,7 +29,7 @@ def run_command(root:str,command:str):
         logger.warning('命令不在白名单内,执行终止')
         return json.dumps({
             'error': '命令权限不足,请换种策略执行任务'
-        })  
+        },ensure_ascii=False)  
     process = subprocess.Popen(
         command,
         cwd = root,
@@ -50,7 +50,7 @@ def run_command(root:str,command:str):
         'success': process.returncode == 0,   #成功退出码为0,否则不为0,比如子进程代码语法错误
         'stdout': stdout,
         'stderr': stderr
-                })
+                },ensure_ascii=False)
     except subprocess.TimeoutExpired:   #超时后杀死进程树,释放资源,关闭管道的写端和读端,写端连子进程,读端连父进程,一个没关管道这块内存就不会释放,PID
         parent = psutil.Process(process.pid)
         #递归获取所有子进程并杀死
@@ -69,7 +69,7 @@ def run_command(root:str,command:str):
         return json.dumps({
             'success': False,
             'error': f'命令执行超时25秒,强制终止'
-        })
+        },ensure_ascii=False)
  
 
 
