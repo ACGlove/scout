@@ -49,3 +49,4 @@ def search(query:str,tavily_client):
 
 #没加ensure_ascii=False的话,中文会被转义成ASCII的形式,token量大大增加,这是json转义的写法
 #ASCII编码是英文字符的编码,中文字符在ASCII中没有对应的编码,所以会被转义成\uXXXX的形式,这样会增加token量,不利于模型理解
+#中文无法用 ASCII 表示，所以 json.dumps 把它换成 Unicode 码点的十六进制文本；这串文本恰好全是 ASCII 字符，因此能安全传输，再由 json.loads 查表还原。ASCII 负责搬运编号，Unicode 表负责解释编号——两者缺一不可

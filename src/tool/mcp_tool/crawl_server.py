@@ -48,11 +48,37 @@ def _norm(url: str) -> str:
 
 
 @mcp.tool()
-def fetch(url: str, max_chars: int = 8000) -> str:
-    """抓取单个网页，返回标题和正文纯文本。"""
-    final, html = _get(url)
+def fetch(url: str, max_chars: int = 8000, offset: int = 0) -> str:
+    """抓取单个网页，返回标题和正文纯文本。
+
+    正文太长会分段返回：开头会写明总长度和本次的字符区间，
+    没读完时结尾会给出 next_offset。想继续读就带上这个 offset 再调用，
+    不要用更大的 max_chars 重复抓同一个 URL。
+    """
+    max_chars = min(max(1, max_chars), 40000)   # 防止一次把整页灌进上下文
+    try:
+        final, html = _get(url)
+    except httpx.HTTPStatusError as exc:        # 把状态码带回去,模型才知道是 403 还是 404,而不是盲目重试
+        return f"抓取失败: HTTP {exc.response.status_code} {exc.request.url}"
+    except httpx.TimeoutException:
+        return f"抓取失败: 超时(>{TIMEOUT}s) {url}"
+    except Exception as exc:
+        return f"抓取失败: {type(exc).__name__}: {exc}"
+
     title, text, _ = _parse(html)
-    return f"# {title}\nURL: {final}\n\n{text[:max_chars]}"
+    total = len(text)
+    start = min(max(0, offset), total)   # 负数按 0 处理,超过总长按末尾处理
+    chunk = text[start:start + max_chars]
+    end = start + len(chunk)
+
+    head = (
+        f"# {title}\n"
+        f"URL: {final}\n"
+        f"正文共 {total} 字符,本次返回第 {start}-{end} 字符"
+    )
+    if end < total:
+        head += f"\n[已截断] 继续读请传 offset={end}"
+    return f"{head}\n\n{chunk}"
 
 
 @mcp.tool()
