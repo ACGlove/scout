@@ -30,3 +30,6 @@ dist/
 # 本地工具状�?.learning/
 # test drills sandbox (local only)
 .drill/
+
+# ===== virtualenv =====
+.venv/

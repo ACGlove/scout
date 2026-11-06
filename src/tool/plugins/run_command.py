@@ -18,8 +18,8 @@ def run_command(root:str,command:str):
     allowed_command = [                          #命令白名单
         'python','python3','pip','pip3',
         'pytest','git','dir','ls','cat',
-        'echo','type','find','grep'
-    ]
+        'echo','type','find','grep','date'
+                ]
     accept = False
     for cmd in allowed_command:
         if command.startswith(cmd):
@@ -45,7 +45,9 @@ def run_command(root:str,command:str):
         if len(stdout) > 2000:
             stdout = stdout[:1000] + '\n...输出过长已截断...\n' + stdout[-1000:]   #防止token爆炸
         if len(stderr) > 2000:
-            stderr = stderr[:1000] + '\n...输出过长已截断...\n' + stderr[-1000:]  
+            stderr = stderr[:1000] + '\n...输出过长已截断...\n' + stderr[-1000:]
+        if stderr:
+            logger.warning('命令执行有错误输出:%s',stderr)  
         return json.dumps({
         'success': process.returncode == 0,   #成功退出码为0,否则不为0,比如子进程代码语法错误
         'stdout': stdout,

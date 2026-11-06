@@ -30,7 +30,7 @@
 - 任意 OpenAI 兼容端点（DeepSeek / OpenAI / 本地 vLLM 均可）
 - Tavily API Key（联网搜索工具使用）
 
-运行时依赖见 `requirements.txt`，包括 `openai`、`pydantic`、`python-dotenv`、`tavily-python`、`tiktoken`、`mcp`、`httpx`、`beautifulsoup4`、`psutil`。
+运行时依赖见 `requirements.txt`，包括 `openai`、`pydantic`、`python-dotenv`、`tavily`、`tiktoken`、`mcp`、`httpx`、`beautifulsoup4`、`psutil`；测试依赖 `pytest` 也在同一文件中。
 
 ## 快速开始
 
@@ -309,7 +309,6 @@ def grep(pattern: str, path: str = '.', root: str = ''):
 ## 测试
 
 ```bash
-pip install pytest
 python -m pytest tests/ -v
 ```
 

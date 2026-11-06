@@ -7,19 +7,19 @@ import asyncio
 from dataclasses import fields
 from ..tool.contract import BaseTool
 from .protocol import HookManagerProtocol
-from mcp.types import CallToolResult
+
 class ToolExecutor:
     def __init__(self,tools:list[BaseTool],config,hooks:HookManagerProtocol):
-        self.config=config
+        self.config = config
         self.hooks = hooks
-        self.tools=tools
-        self.func_retry={
+        self.tools = tools
+        self.func_retry = {
             tool.name:tool.max_retry for tool in self.tools  #记录工具名映射最大重试次数
                 }
-        self.error_retry={
+        self.error_retry = {
             tool.name:0 for tool in self.tools
         }
-        self.disabled_tools=[]
+        self.disabled_tools = []
 
     def is_tool_accept_call(self,tool_call,tool_messages:list[dict]) -> bool:
         tool_name = tool_call.function.name
@@ -56,8 +56,8 @@ class ToolExecutor:
 
 #dict.values()返回视图[1,2],无法使用列表方法，字典的取值改变，视图跟着变
     async def execute(self,aimsg) -> list[dict]:
-        tool_messages=[]
-        name_func={
+        tool_messages = []
+        name_func = {
             tool.name:tool.func for tool in self.tools
         }
         
@@ -103,7 +103,7 @@ class ToolExecutor:
 
 
     def get_schema(self) -> list[dict]:
-        disabled=set(self.disabled_tools)
+        disabled=set(self.disabled_tools)    #避免反复加入禁用列表
         return [tool.json_schema for tool in self.tools if tool.name not in disabled]
 
 

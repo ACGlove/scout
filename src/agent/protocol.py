@@ -6,11 +6,11 @@ class MemoryProtocol(Protocol):
     messages:list[dict[str,Any]]
     max_token:int
 
-    def add_system_msg(self,system='') -> None:...
-
     def add_user_msg(self,user_input:str) -> None:...
 
     def add_tool_msg(self,tool_id:str,tool_result='') -> None:...
+
+    def get_messages(self,system:str) -> list[dict]:...
 
 
 
@@ -44,7 +44,7 @@ class McpLoaderProtocol(Protocol):
 
 class LLMProvider(Protocol):
     model_name:str
-    async def chat(self, messages:list[dict],tools:list[dict]) -> Any:...
+    async def chat(self, messages:list[dict],tools:list[dict],on_delta:Any) -> Any:...
 
 
 

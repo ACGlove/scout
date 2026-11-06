@@ -1,9 +1,15 @@
+# Runtime dependencies. Version floors are calibrated against .venv (Python 3.12.9).
 openai>=1.40
 pydantic>=2.7
 python-dotenv>=1.0
-tavily-python>=0.5
+# Code does `import tavily` / `from tavily.exceptions import ...`;
+# the installed distribution is `tavily` 1.1.0, not `tavily-python`.
+tavily>=1.1
 tiktoken>=0.7
 mcp>=2.0
 httpx>=0.27
 beautifulsoup4>=4.12
 psutil>=5.9
+
+# Tests
+pytest>=8.0
