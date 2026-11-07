@@ -10,6 +10,7 @@ mcp>=2.0
 httpx>=0.27
 beautifulsoup4>=4.12
 psutil>=5.9
+prompt_toolkit>=3.0
 
 # Tests
 pytest>=8.0
