@@ -6,7 +6,7 @@ import inspect
 import asyncio
 from dataclasses import fields
 from ..tool.contract import BaseTool
-from .protocol import HookManagerProtocol
+from ..protocol import HookManagerProtocol
 
 class ToolExecutor:
     def __init__(self,tools:list[BaseTool],config,hooks:HookManagerProtocol):
@@ -71,10 +71,9 @@ class ToolExecutor:
             func = name_func.get(tool_name,None)
             
             if func is None:
-                resp = self.hooks.trigger('tool_name_error',tool_id)
+                resp = self.hooks.trigger('tool_name_error',tool_call)
                 tool_messages.append(resp)
                 continue
-                
             if not self.is_tool_accept_call(tool_call,tool_messages):
                 continue
             tool_args=self.get_tool_args(tool_call,tool_messages)
@@ -86,10 +85,9 @@ class ToolExecutor:
             tasks.append((asyncio.to_thread(func,**tool_args),tool_call,tool_name) if not inspect.iscoroutinefunction(func) else (func(tool_name,tool_args),tool_call,tool_name))
             #异步分支(mcp工具):call_tool 的签名是 (name, arguments:dict),必须传两个位置参数
             #不能写 func(tool_name, **tool_args),那会把 url=... 当成 call_tool 自己的关键字参数 -> TypeError  
-            
+        logger.warning('任务:%s',[task[2] for task in tasks])
         #解包协程对象列表传入,result里是协程任务的顺序
         result = await asyncio.gather(*[task[0] for task in tasks],return_exceptions = True)   #并发收集执行结果,把结果打包成列表
-        logger.warning('线程池中的任务:%s',[task[2] for task in tasks])
         
         for (_,tool_call,_),res in zip(tasks,result):
             if isinstance(res,Exception):

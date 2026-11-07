@@ -27,11 +27,12 @@ from .memory.memory import Memory
 from .agent.config_context import ConfigContext
 from .hooks.hook_manager import HookManager
 from .tool.mcp_tool.mcp_manager import McpLoader
+from .cli.cli_manager import CliManager
 from .deps import OpenAIClient
+from .memory.history_state import AgentState
 
 
 async def build_agent(mcp_loader):
-    system = await asyncio.to_thread(input, '设定角色：')   #先问角色,有输出提示,不会让人以为"没反应"
     config_context=ConfigContext()
     LLM = OpenAIClient()
     memory=Memory(max_token = 60000,
@@ -47,9 +48,7 @@ async def build_agent(mcp_loader):
                           config = config_context,
                           hooks = hooks
                           )
-
     agent=Agent(
-        system = system,
         model = LLM,
         memory = memory,
         executor = executor
@@ -59,11 +58,14 @@ async def build_agent(mcp_loader):
 
 async def main():          #定义在模块层,测试才能 import 进来;写在 if __name__ 里面就永远测不到
     mcp_loader = McpLoader()
-    await mcp_loader.setup()   #启动mcp服务
+    
     try:                       #必须放在 try/finally 里:mcp 子进程没关掉时 asyncio.run 收尾会一直等,异常信息也不会打印出来
+        await mcp_loader.setup()
+        agentstate = AgentState()
         agent = await build_agent(mcp_loader)
-        result = await agent('读一下工作区下文件的内容,告诉我你总结的内容')
-        print(result)
+        cli_manager = CliManager(agent,agentstate)
+        
+        await cli_manager.run_loop()
     finally:
         await mcp_loader.stack.aclose()  #关闭mcp服务
 
@@ -74,6 +76,9 @@ if __name__=='__main__':
         
     
     
-
-    
+# task = asyncio.create_task(mcp_loader.setup())   #create_task创建了新的任务：启动mcp
+#但是外部资源的打开和关闭必须在同一个任务下,所以报了以下错误,且setup和build_agent必须串行等待
+#RuntimeError: Attempted to exit cancel scope in a different task than it was entered in
+#await func()不算创建新任务,直接在当前协程执行
+# gather和create_task一定会创建新任务    
    

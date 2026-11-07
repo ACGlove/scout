@@ -3,7 +3,7 @@ logger=logging.getLogger(__name__)
 
 
 from ..tool.contract import BaseTool
-from .protocol import PluginsLoaderProtocol,McpLoaderProtocol
+from ..protocol import PluginsLoaderProtocol,McpLoaderProtocol
 
 
 

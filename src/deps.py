@@ -30,6 +30,7 @@ async def assemble(stream,on_delta):
                         id=s['id'], type='function',
                         function=Function(name=s['name'], arguments=s['arguments']))
                     for _, s in sorted(calls.items())]    #calls.items->(index,slot),sorted按元组第零项排序
+    print()
     return ChatCompletionMessage(
         role = 'assistant',
         content = ''.join(content) or None,   #None是json里的null,官方强制要求发起tool_calls时content字段必须是null,如果传''可能会报400错误

@@ -1,5 +1,5 @@
 from typing import Protocol,Any
-from ..tool.contract import BaseTool
+from .tool.contract import BaseTool
 
 
 class MemoryProtocol(Protocol):
@@ -12,23 +12,13 @@ class MemoryProtocol(Protocol):
 
     def get_messages(self,system:str) -> list[dict]:...
 
-
-
 class ToolExecutorProtocol(Protocol):
     tools:list[BaseTool]
-    
-
     def execute(self,aimsg) -> list[dict]:...
-
     def get_schema(self) -> list[dict]:...
-
-
-
 
 class PluginsLoaderProtocol(Protocol):
     def load_plugins(self) -> list[BaseTool]:...
-    
-
 
 # protocol.py 里追加
 class HookManagerProtocol(Protocol):
@@ -40,12 +30,15 @@ class McpLoaderProtocol(Protocol):
 
     async def load_tools(self) -> list[BaseTool]:...
 
-
-
 class LLMProvider(Protocol):
     model_name:str
     async def chat(self, messages:list[dict],tools:list[dict],on_delta:Any) -> Any:...
 
+class AgentStateProtocol(Protocol):
+    history:list
+    def save_history(self,messages:list[dict]) -> Any:...
+    def load_history(self) -> list[dict]:...
+    
 
 
 

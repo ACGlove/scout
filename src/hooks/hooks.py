@@ -12,20 +12,20 @@ import json
 def retry_error(e:Exception,tool_call):
     match e:
         case json.JSONDecodeError():
-            logger.error('json格式参数错误解析，重新传回给大模型')
-            return {'role':'tool','tool_call_id':tool_call.id,'content':f'arguments的json解析失败:{e},请更换参数传入或者换个策略'}
+            logger.error('arguments的json解析失败，重新传回给大模型')
+            return {'role':'tool','tool_call_id':tool_call.id,'content':f'arguments的json解析失败:{e},请更换参数传入或者换个策略','retry':tool_call.function.name}
         case TypeError():
              logger.error('参数错误，重新传回给大模型')
-             return {'role':'tool','tool_call_id':tool_call.id,'content':f'参数错误:{e},请更换参数传入或者换个策略'}
+             return {'role':'tool','tool_call_id':tool_call.id,'content':f'参数错误:{e},请更换参数传入或者换个策略','retry':tool_call.function.name}
         case _:
             logger.error('工具调用错误,回传重试信息')
-            return {'role':'tool','tool_call_id':tool_call.id,'content':f'工具调用失败:{e},请重新调用工具尝试'}
+            return {'role':'tool','tool_call_id':tool_call.id,'content':f'工具调用失败:{e},请重新调用工具尝试','retry':tool_call.function.name}
 
 
 @hook_register(name = 'tool_name_error')
-def tool_name_error(tool_id):
+def tool_name_error(tool_call):
     logger.error('工具名不存在，重新传回给大模型')
-    return {'role':'tool','tool_call_id':tool_id,'content':'工具名不存在，请重新生成正确的工具名'}
+    return {'role':'tool','tool_call_id':tool_call.id,'content':'工具名不存在，请重新生成正确的工具名','retry':tool_call.function.name}
 
 
 @hook_register(name = 'retry_limit')
