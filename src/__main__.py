@@ -1,7 +1,7 @@
 import logging          #配置在业务import之前，不然导入文件时运行的代码没法记录日志
 logging.basicConfig(
                     format='%(asctime)s %(levelname)s %(name)s: %(message)s',     #分别为时间，级别,名字，信息
-                    filename='src\\record.log',
+                    filename='src/record.log',
                     encoding='utf-8',
                     filemode='w')  #覆盖式
 logger = logging.getLogger(__name__)  #起名字，直接用文件名
@@ -30,10 +30,11 @@ from .tool.mcp_tool.mcp_manager import McpLoader
 from .cli.cli_manager import CliManager
 from .deps import OpenAIClient
 from .memory.history_state import AgentState
-
+from .agent.converter import OpenaiConverter
 
 async def build_agent(mcp_loader):
     config_context=ConfigContext()
+    converter = OpenaiConverter()
     LLM = OpenAIClient()
     memory=Memory(max_token = 60000,
                   model = LLM
@@ -51,7 +52,8 @@ async def build_agent(mcp_loader):
     agent=Agent(
         model = LLM,
         memory = memory,
-        executor = executor
+        executor = executor,
+        converter = converter
     )
     return agent
 
@@ -64,8 +66,7 @@ async def main():          #定义在模块层,测试才能 import 进来;写在
         agentstate = AgentState()
         agent = await build_agent(mcp_loader)
         cli_manager = CliManager(agent,agentstate)
-        
-        await cli_manager.run_loop()
+        await cli_manager.run_task()
     finally:
         await mcp_loader.stack.aclose()  #关闭mcp服务
 

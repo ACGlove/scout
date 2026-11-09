@@ -37,7 +37,7 @@ def run_command(root:str,command:str):
         stderr = subprocess.PIPE,    #标准错误接入管道,避免输出到终端,一般是print()的内容
         stdout = subprocess.PIPE,    #标准输出接入管道
         text = True,                 #输出是bytes,解码为字符串
-        creationflags = subprocess.CREATE_NO_WINDOW       #windows平台专属:隐藏弹出的黑框
+        creationflags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)       #windows平台专属:隐藏弹出的黑框,linux无取0
     )
     try:
         #运行到communicate会阻塞直到父进程死掉,把抽取的数据拼好返回

@@ -1,6 +1,6 @@
 from typing import Protocol,Any
 from .tool.contract import BaseTool
-
+from openai.types.chat import ChatCompletionMessage
 
 class MemoryProtocol(Protocol):
     messages:list[dict[str,Any]]
@@ -12,9 +12,18 @@ class MemoryProtocol(Protocol):
 
     def get_messages(self,system:str) -> list[dict]:...
 
+
+class ToolCall(Protocol):
+    id:str
+    name:str
+    argument:str
+
+class OpenaiConverter(Protocol):
+    def convert(self,aimsg:ChatCompletionMessage) -> list[ToolCall]: ...
+
 class ToolExecutorProtocol(Protocol):
     tools:list[BaseTool]
-    def execute(self,aimsg) -> list[dict]:...
+    def execute(self,tool_calls:list[ToolCall]) -> list[dict]:...
     def get_schema(self) -> list[dict]:...
 
 class PluginsLoaderProtocol(Protocol):
@@ -39,10 +48,6 @@ class AgentStateProtocol(Protocol):
     def save_history(self,messages:list[dict]) -> Any:...
     def load_history(self) -> list[dict]:...
     
-
-
-
-
 
 
 
